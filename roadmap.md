@@ -1,0 +1,35 @@
+# CENTINELA roadmap
+- [x] Replace simulated access with configured OAuth and public national map; fix overlapping mobile controls, popup injection and GPS/water lifecycle; 19 tests and public browser flows pass
+- [x] Restore missing SELECT/INSERT grants on existing owner-only field report storage; anonymous reads remain denied
+- [x] Satellite HD basemap and visible selector; advertised VIIRS thermal layer with failure status
+- [x] Partial reference proximity, opt-in sound and exploratory 1/3/6h scenarios (not trained AI or validated forecasts)
+- [x] Authenticated realtime field channel and GPS-consent SOS with WhatsApp and 119/110 links
+- [x] Verify satellite rendering, sound, scenario, GPS, mobile and safety tests
+- [ ] Verify signed-in report write/read and second-client realtime (blocked: no auth users; first participant must sign in)
+- [x] Enable live FIRMS detections (NASA_FIRMS_MAP_KEY configured)
+- [x] COE contacts by department marked pending until officially verified; warnings only from real detections with source and update time
+- [ ] Verify COE departmental numbers with an authoritative source and mark them "verificado" (blocked: numbers not supplied)
+- [ ] Confirm live VIIRS thermal tiles (blocked: NASA advertised 2026-10-22 endpoint returns HTTP 404)
+- [ ] Configure verified local COE contacts (blocked: authoritative numbers not supplied; user-entered WhatsApp supported)
+- [x] Connect real POWER and EONET with resilient source/date status
+- [x] Add optional server-only FIRMS Bolivia client and fallback warning (live FIRMS needs user key)
+- [x] Add dated GIBS WMTS satellite layers
+- [ ] Confirm live MODIS GIBS tiles (blocked: NASA advertised endpoint returns HTTP 404; visible fallback warning implemented)
+- [x] Add national department/point selection and regional statistics to command/mobile maps
+- [x] Preserve tactical screens; verify live POWER/GIBS, EONET empty fallback, mobile and tests
+- [x] Design system, data, tactical map
+- [x] Command center dashboard (3 panels)
+- [x] Strategic report screen (/reportes)
+- [x] Public citizen view (/publico)
+- [x] Login restyle: city-lights background, 3D shield emblem, gold button, password reveal, biometric icon
+- [x] Mobile live command view (/movil) with bottom nav, gauge, NASA card, map controls, legend
+- [x] Mobile alert detail (/alerta/$id) with route mini-map, 4 telemetry cards, actions
+- [x] Toggle between mobile views and command panel
+- [x] Integrate context from uploaded strategy PDF + NASA pitch PDF (/proyecto page)
+- [x] Motor de armonización espaciotemporal MODIS + VIIRS con reducción de falsos positivos y refinamiento espacial a 375m (Reto oficial NASA Space Apps)
+- [x] Índice meteorológico de peligro de incendios de Ångström integrado con telemetría NASA POWER
+- [x] Vector y rosa de los vientos táctica interactiva con cuadrante y ángulo de avance
+- [x] Clasificación de Severidad Térmica FRP y estimación de recursos hídricos para despacho de bomberos
+- [x] Ficha táctica y generador de despachos ICS-209 para brigadistas y radio-operadores
+- [x] Filtros rápidos por corroboración dual, FRP crítico y cercanía a centros poblados
+- [x] Suite de tests unitarios para armonización, índices de fuego y rosa de vientos
