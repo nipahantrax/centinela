@@ -35,6 +35,30 @@ import { clusterHotspots, type HotspotCluster } from "@/lib/webgl-clustering";
 import { WebGLThermalLayer } from "./WebGLThermalLayer";
 import { PreventiveLegend, type TacticalMapMode } from "./PreventiveLegend";
 import { useI18n } from "@/lib/i18n";
+import {
+  Satellite,
+  Flame,
+  Droplets,
+  Trees,
+  Truck,
+  Flag,
+  Map as MapIcon,
+  Mountain,
+  Wind,
+  Crosshair,
+  MapPin,
+  AlertTriangle,
+  ShieldCheck,
+  Share2,
+  Navigation,
+  Compass,
+  X,
+  Plus,
+  Minus,
+  Footprints,
+  Activity,
+  Zap,
+} from "lucide-react";
 
 export interface Layers {
   thermal: boolean;
@@ -59,6 +83,7 @@ interface Props {
   mode?: TacticalMapMode;
   onModeChange?: (mode: TacticalMapMode) => void;
   selectedRegionId?: string;
+  onSelectRegion?: (regionId: string) => void;
 }
 
 function css(name: string) {
@@ -81,6 +106,7 @@ export function TacticalMap({
   mode,
   onModeChange,
   selectedRegionId,
+  onSelectRegion,
 }: Props) {
   const { t } = useI18n();
   const el = useRef<HTMLDivElement>(null);
@@ -144,6 +170,7 @@ export function TacticalMap({
     showWaterResources,
     showVegetationZones,
     showSuggestedCisterns,
+    selectedRegionId,
   });
 
   latest.current = {
@@ -164,10 +191,14 @@ export function TacticalMap({
     showWaterResources,
     showVegetationZones,
     showSuggestedCisterns,
+    selectedRegionId,
   };
 
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
+
+  const onSelectRegionRef = useRef(onSelectRegion);
+  onSelectRegionRef.current = onSelectRegion;
 
   // Cálculo de clústeres reactivo para WebGL y Leaflet
   const clusters = useMemo(() => {
@@ -513,6 +544,7 @@ export function TacticalMap({
     showWaterResources,
     showVegetationZones,
     showSuggestedCisterns,
+    selectedRegionId,
   ]);
 
   function draw() {
@@ -531,6 +563,7 @@ export function TacticalMap({
       showWaterResources,
       showVegetationZones,
       showSuggestedCisterns,
+      selectedRegionId,
     } = latest.current;
     g.clearLayers();
     const success = css("--success"),
@@ -571,12 +604,39 @@ export function TacticalMap({
       }
     }
 
-    // Límites de Departamentos ADM1 de Bolivia
-    if (national) {
-      lib.geoJSON(boundaries as GeoJsonObject, { style: { color: primary, weight: 1, fillOpacity: 0.015 } }).addTo(g);
+    // ============================================================
+    // DEMARCACIÓN CARTOGRÁFICA VECTORIAL COMPLETA
+    // ============================================================
+    // 1. Contorno Nacional de Bolivia y Departamentos limítrofes
+    lib.geoJSON(boundaries as GeoJsonObject, {
+      filter: (feature: any) => feature.properties?.name !== "Cochabamba",
+      style: {
+        color: "#94A3B8",
+        weight: 2,
+        dashArray: "4, 4",
+        fillOpacity: 0.02,
+      },
+    }).addTo(g);
+
+    // 2. Perímetro Completo del Departamento de Cochabamba (Borde Cian Neón de alto contraste)
+    const cochabambaFeature = (boundaries as any).features?.find(
+      (f: any) => f.properties?.name === "Cochabamba"
+    );
+    if (cochabambaFeature) {
+      lib
+        .geoJSON(cochabambaFeature as GeoJsonObject, {
+          style: {
+            color: "#00E5FF",
+            weight: 3.5,
+            fillColor: "#00E5FF",
+            fillOpacity: 0.06,
+          },
+        })
+        .bindTooltip("DEPARTAMENTO DE COCHABAMBA", { direction: "center" })
+        .addTo(g);
     }
 
-    // Polígono de Protección Oficial del Parque Nacional Tunari (SERNAP)
+    // 3. Polígono de Protección Oficial del Parque Nacional Tunari (SERNAP)
     lib
       .polygon(TUNARI_BOUNDARY, {
         color: "#10B981",
@@ -585,41 +645,72 @@ export function TacticalMap({
         fillOpacity: 0.06,
         dashArray: "6, 6",
       })
-      .bindTooltip("🏔️ PARQUE NACIONAL TUNARI (ÁREA PROTEGIDA SERNAP)", {
+      .bindTooltip("PARQUE NACIONAL TUNARI (ÁREA PROTEGIDA SERNAP)", {
         permanent: true,
         direction: "top",
         className: "bg-slate-950/90 text-emerald-400 font-bold border border-emerald-500/50 rounded px-2 py-0.5 text-xs shadow-lg",
       })
       .addTo(g);
 
-    // Límites Poligonales de los 11 Municipios / Provincias de Cochabamba
+    // 4. Límites Poligonales de los 11 Municipios / Provincias de Cochabamba
     COCHABAMBA_MUNICIPALITIES_POLYGONS.forEach((m) => {
       const isSelected = selectedRegionId === m.id;
       lib
         .polygon(m.polygon, {
-          color: isSelected ? "#FFD700" : "#38BDF8",
-          weight: isSelected ? 3 : 1.5,
-          opacity: isSelected ? 0.95 : 0.65,
-          fillColor: isSelected ? "#FFD700" : "#38BDF8",
-          fillOpacity: isSelected ? 0.08 : 0.03,
+          color: isSelected ? "#FFD700" : "#F59E0B",
+          weight: isSelected ? 3.5 : 1.8,
+          opacity: isSelected ? 1 : 0.75,
+          fillColor: isSelected ? "#FFD700" : "#F59E0B",
+          fillOpacity: isSelected ? 0.16 : 0.05,
           dashArray: isSelected ? undefined : "4 4",
         })
-        .bindTooltip(`📍 ${m.name} (Prov. ${m.province})`, { direction: "center" })
+        .on("click", (e: Leaflet.LeafletMouseEvent) => {
+          lib.DomEvent.stopPropagation(e);
+          onSelectRegionRef.current?.(m.id);
+        })
+        .bindTooltip(`${m.name} (Prov. ${m.province})`, { direction: "center" })
         .addTo(g);
     });
 
-    // Etiquetas Cartográficas Permanentes de Provincias y Ciudades
-    CARTOGRAPHIC_LABELS.forEach((cl) => {
-      const isSelected = selectedRegionId === cl.id;
-      const labelIcon = lib.divIcon({
+    // 5. Anti-Colisión de Etiquetas Cartográficas por Nivel de Zoom
+    if (currentZoom <= 7) {
+      // Zoom Macro (<=7): Solo Estado Plurinacional de Bolivia y Departamento de Cochabamba
+      const boliviaIcon = lib.divIcon({
         className: "",
-        html: `<div class="bg-slate-950/85 border ${isSelected ? "border-amber-400 text-amber-300 ring-2 ring-amber-400/50 font-extrabold" : "border-cyan-500/40 text-white"} px-2 py-0.5 rounded text-[11px] font-bold shadow-md pointer-events-none whitespace-nowrap flex items-center gap-1 backdrop-blur-sm">
-          ${cl.label}
+        html: `<div class="bg-slate-950/90 border border-slate-600 text-white font-extrabold px-2.5 py-1 rounded text-xs shadow-lg flex items-center gap-1 backdrop-blur-sm tracking-widest pointer-events-none whitespace-nowrap">
+          ESTADO PLURINACIONAL DE BOLIVIA
         </div>`,
-        iconAnchor: [60, 12],
+        iconAnchor: [120, 15],
       });
-      lib.marker([cl.lat, cl.lng], { icon: labelIcon, interactive: false }).addTo(g);
-    });
+      lib.marker([-16.5, -64.5], { icon: boliviaIcon, interactive: false }).addTo(g);
+
+      const cochaIcon = lib.divIcon({
+        className: "",
+        html: `<div class="bg-slate-950/90 border border-cyan-400 text-cyan-300 font-extrabold px-2.5 py-1 rounded text-xs shadow-lg flex items-center gap-1 backdrop-blur-sm tracking-wide pointer-events-none whitespace-nowrap">
+          DEPARTAMENTO DE COCHABAMBA
+        </div>`,
+        iconAnchor: [90, 15],
+      });
+      lib.marker([-17.35, -65.85], { icon: cochaIcon, interactive: false }).addTo(g);
+    } else {
+      // Zoom >= 8: Etiquetas municipales filtradas por minZoom (Quillacollo y Colcapirhua no colisionan)
+      CARTOGRAPHIC_LABELS.forEach((cl) => {
+        if (currentZoom < cl.minZoom) return;
+        const isSelected = selectedRegionId === cl.id;
+        const labelIcon = lib.divIcon({
+          className: "",
+          html: `<div class="bg-slate-950/90 border ${
+            isSelected
+              ? "border-amber-400 text-amber-300 ring-2 ring-amber-400/50 font-black"
+              : "border-cyan-500/40 text-slate-200 font-bold"
+          } px-2 py-0.5 rounded text-[11px] shadow-md pointer-events-none whitespace-nowrap flex items-center gap-1 backdrop-blur-sm">
+            ${cl.label}
+          </div>`,
+          iconAnchor: [50, 12],
+        });
+        lib.marker([cl.lat, cl.lng], { icon: labelIcon, interactive: false }).addTo(g);
+      });
+    }
 
     // ============================================================
     // NIVEL 1: POLÍGONOS DE ALERTA PREVENTIVA — REGLA 30-30-30 (AÚN SIN FUEGO)
@@ -1177,495 +1268,496 @@ export function TacticalMap({
   }
 
   return (
-    <div className="relative h-full w-full min-h-[420px] lg:min-h-[580px]">
-      <div ref={el} className="h-full w-full min-h-[420px] lg:min-h-[580px]" />
-
-      {/* Capa acelerada por GPU WebGL / Shader Canvas */}
-      <WebGLThermalLayer
-        map={map.current}
-        clusters={clusters}
-        enabled={webglEnabled}
-        heatmapEnabled={heatmapEnabled}
-        windFlowEnabled={windFlowEnabled}
-        wind={wind}
-        center={center}
-      />
-
-      {/* Selector de Mapa Base */}
-      <div className="glass absolute left-2 top-2 z-[400] flex gap-1 rounded p-1">
-        <TacButton
-          aria-pressed={base === "satellite"}
-          onClick={() => setBase("satellite")}
-          tone={base === "satellite" ? "primary" : "ghost"}
-          className="px-2 py-1 text-[10px]"
-        >
-          Satélite HD
-        </TacButton>
-        <TacButton
-          aria-pressed={base === "dark"}
-          onClick={() => setBase("dark")}
-          tone={base === "dark" ? "primary" : "ghost"}
-          className="px-2 py-1 text-[10px]"
-        >
-          Oscuro
-        </TacButton>
-      </div>
-
-      {/* Selector Táctico de Modo y Leyenda Preventiva (Fase 1) */}
-      <PreventiveLegend
-        mode={activeMode}
-        onModeChange={handleModeChange}
-        className="absolute left-2.5 bottom-10 z-[400]"
-      />
-
-      {/* GPU & CLUSTERING TELEMETRY HUD (Para impresionar al Jurado) */}
-      <div className="glass absolute top-2 left-32 z-[400] hidden md:flex items-center gap-1.5 rounded-lg p-1 font-mono text-[10px] shadow-lg">
-        <button
-          type="button"
-          onClick={() => setClusteringEnabled(!clusteringEnabled)}
-          className={`px-2 py-0.5 rounded transition-colors ${
-            clusteringEnabled
-              ? "bg-primary/20 text-primary font-bold border border-primary/50"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          🔥 Clústeres {clusteringEnabled ? "ON" : "OFF"}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setWebglEnabled(!webglEnabled)}
-          className={`px-2 py-0.5 rounded transition-colors ${
-            webglEnabled
-              ? "bg-amber-500/20 text-amber-400 font-bold border border-amber-500/50"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          ⚡ GPU WebGL {webglEnabled ? "ON" : "OFF"}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setHeatmapEnabled(!heatmapEnabled)}
-          className={`px-2 py-0.5 rounded transition-colors ${
-            heatmapEnabled
-              ? "bg-fire/20 text-fire font-bold border border-fire/50"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          🌡️ Heatmap FRP
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setWindFlowEnabled(!windFlowEnabled)}
-          className={`px-2 py-0.5 rounded transition-colors ${
-            windFlowEnabled
-              ? "bg-sky-500/20 text-sky-400 font-bold border border-sky-500/50"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          💨 Viento GPU
-        </button>
-
-        <span className="px-1.5 py-0.5 text-primary/80 border-l border-border/40 font-bold truncate">
-          60 FPS · {clusters.length} Clústeres / {harmonizedTotal} Armonizados (375m)
-        </span>
-      </div>
-
-      {/* Botón Mi GPS */}
-      <div className="glass absolute right-2 top-2 z-[400] flex flex-col gap-1 rounded p-1">
-        <TacButton
-          aria-pressed={locating}
-          onClick={toggleLocate}
-          tone={locating ? "primary" : "ghost"}
-          className="px-2 py-1 text-[10px]"
-        >
-          📍 Mi GPS
-        </TacButton>
-      </div>
-
-      {/* Selector de Capas Rápidas Tácticas: Ríos/Tanques, Vegetación, Cisternas Sugeridas */}
-      <div className="glass absolute right-20 top-2 z-[400] hidden sm:flex items-center gap-1 rounded p-1 font-mono text-[10px]">
-        <button
-          type="button"
-          onClick={() => setShowWaterResources(!showWaterResources)}
-          className={`px-2 py-0.5 rounded transition-colors ${
-            showWaterResources
-              ? "bg-sky-500/20 text-sky-400 font-bold border border-sky-500/50"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-          title="Ríos, Riachuelos, Lagunas y Tanques de Cochabamba"
-        >
-          {t("layerWater")} {showWaterResources ? "ON" : "OFF"}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setShowVegetationZones(!showVegetationZones)}
-          className={`px-2 py-0.5 rounded transition-colors ${
-            showVegetationZones
-              ? "bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/50"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-          title="Zonas de Vegetación e Inflamabilidad (Eucalipto, Ichu, Kewiña SERNAP)"
-        >
-          {t("layerVegetation")} {showVegetationZones ? "ON" : "OFF"}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setShowSuggestedCisterns(!showSuggestedCisterns)}
-          className={`px-2 py-0.5 rounded transition-colors ${
-            showSuggestedCisterns
-              ? "bg-amber-500/20 text-amber-400 font-bold border border-amber-500/50"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-          title="Zonas de Recurrencia Crítica y Pre-Posicionamiento de Cisternas Móviles"
-        >
-          {t("layerCisterns")} {showSuggestedCisterns ? "ON" : "OFF"}
-        </button>
-      </div>
-
-      {/* DOCK TÁCTICO FLOTANTE DE ZOOM Y NAVEGACIÓN ERGONÓMICA */}
-      <div className="glass absolute right-2.5 top-14 z-[400] flex flex-col gap-1 rounded-xl p-1 shadow-2xl backdrop-blur-md border border-slate-700/60">
-        <button
-          type="button"
-          onClick={() => map.current?.zoomIn(0.5)}
-          className="h-8 w-8 rounded-lg bg-slate-900/90 text-primary hover:bg-primary hover:text-primary-foreground font-bold text-base flex items-center justify-center transition-all shadow border border-primary/30"
-          title="Acercar (Zoom +0.5)"
-          aria-label="Acercar mapa"
-        >
-          ➕
-        </button>
-        <button
-          type="button"
-          onClick={() => map.current?.zoomOut(0.5)}
-          className="h-8 w-8 rounded-lg bg-slate-900/90 text-primary hover:bg-primary hover:text-primary-foreground font-bold text-base flex items-center justify-center transition-all shadow border border-primary/30"
-          title="Alejar (Zoom -0.5)"
-          aria-label="Alejar mapa"
-        >
-          ➖
-        </button>
-        <div className="h-px w-full bg-slate-700/60 my-0.5" />
-        <button
-          type="button"
-          onClick={() => {
-            if (selectedIncident) {
-              map.current?.flyTo([selectedIncident.lat, selectedIncident.lng], 14, { duration: 0.8 });
-            } else if (incidents.length > 0) {
-              const topFire = [...incidents].sort((a, b) => (b.frp ?? 0) - (a.frp ?? 0))[0]!;
-              onSelectRef.current?.(topFire.id);
-              map.current?.flyTo([topFire.lat, topFire.lng], 14, { duration: 0.8 });
-            }
-          }}
-          className="h-8 w-8 rounded-lg bg-slate-900/90 text-amber-400 hover:bg-amber-500 hover:text-slate-950 font-bold text-sm flex items-center justify-center transition-all shadow border border-amber-500/40"
-          title="Centrar en Foco Activo Crítico"
-          aria-label="Centrar foco activo"
-        >
-          🎯
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            map.current?.flyTo([-17.3935, -66.157], 10.5, { duration: 0.9 });
-          }}
-          className="h-8 w-8 rounded-lg bg-slate-900/90 text-emerald-400 hover:bg-emerald-500 hover:text-slate-950 font-bold text-sm flex items-center justify-center transition-all shadow border border-emerald-500/40"
-          title="Panorámica Tunari y Valle Central de Cochabamba"
-          aria-label="Panorámica Valle Tunari"
-        >
-          ⛰️
-        </button>
-      </div>
-
-      {/* HUD DE VIENTO Y DIRECCIÓN DE PROPAGACIÓN EN TIEMPO REAL */}
-      <div className="glass absolute top-2 left-32 sm:left-48 z-[400] hidden lg:flex items-center gap-2 rounded-lg px-2.5 py-1 text-[11px] font-mono shadow-xl border border-sky-500/30 backdrop-blur-md">
-        <div
-          className="w-5 h-5 rounded-full bg-sky-500/20 border border-sky-400 flex items-center justify-center text-sky-300 font-bold text-xs transition-transform"
-          style={{ transform: `rotate(${(wind.deg + 180) % 360}deg)` }}
-          title={`Viento soplando hacia ${(wind.deg + 180) % 360}°`}
-        >
-          ↑
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-muted-foreground font-sans text-[10px]">VIENTO:</span>
-          <span className="text-sky-300 font-bold">{Math.round(wind.kmh)} km/h</span>
-          <span className="text-muted-foreground text-[10px]">desde {wind.deg}°</span>
-          <span className="text-amber-300 font-bold">➔ hacia {(wind.deg + 180) % 360}°</span>
-        </div>
-      </div>
-
-      {/* INSPECTOR TÁCTICO FLOTANTE ANCLADO (REEMPLAZA VENTANAS PERDIDAS / POPUPS DESBORDADOS) */}
-      {isInspectorVisible && selectedIncident && (
-        <div
-          role="dialog"
-          aria-label="Inspector de Emergencia Táctica"
-          onClick={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
-          className="glass absolute bottom-2 sm:bottom-12 right-1 sm:right-4 left-1 sm:left-auto z-[500] w-auto sm:w-[380px] max-h-[calc(100%-16px)] sm:max-h-[72vh] overflow-y-auto rounded-2xl p-3.5 shadow-2xl backdrop-blur-xl border border-primary/50 text-foreground animate-in fade-in slide-in-from-bottom-2 duration-150"
-        >
-          {/* Cabecera */}
-          <div className="flex items-start justify-between gap-2 pb-2 border-b border-border/50">
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span
-                  className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider ${
-                    selectedIncident.status === "Controlado"
-                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                      : (selectedIncident.frp ?? 0) < 8
-                      ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"
-                      : "bg-red-500/20 text-red-400 border border-red-500/40 ring-1 ring-red-500/30"
-                  }`}
-                >
-                  {selectedIncident.status === "Controlado"
-                    ? "🟢 Foco Controlado"
-                    : (selectedIncident.frp ?? 0) < 8
-                    ? "🌡️ Anomalía Inicial (<300°C)"
-                    : "🔥 Foco Activo Confirmado"}
-                </span>
-                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                  {selectedIncident.source}
-                </span>
-              </div>
-              <h4 className="font-bold text-sm text-foreground mt-1 truncate">
-                {selectedIncident.zone}
-              </h4>
-              <div className="text-[11px] font-mono text-muted-foreground flex items-center gap-2">
-                <span>
-                  {selectedIncident.lat.toFixed(5)}, {selectedIncident.lng.toFixed(5)}
-                </span>
-                <span>·</span>
-                <span>Conf: {selectedIncident.confidence ?? 95}%</span>
-              </div>
-            </div>
+    <div className="flex flex-col w-full h-full min-h-[580px] rounded-xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-950">
+      {/* ============================================================ */}
+      {/* BARRA DE CONTROL TÁCTICA DEDICADA ENCIMA DEL LIENZO          */}
+      {/* Cero superposición de botones + diseño de alto nivel C2      */}
+      {/* ============================================================ */}
+      <div className="bg-slate-900/95 border-b border-slate-800 p-2 sm:p-2.5 flex flex-wrap items-center justify-between gap-2 z-10 shrink-0">
+        {/* Controles de Capas y Modos Rápidos */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {/* Selector de Mapa Base */}
+          <div className="flex items-center rounded-lg bg-slate-800/80 p-0.5 border border-slate-700">
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                if (selectedIncident) setClosedId(selectedIncident.id);
-                else setClosedId("all");
-                onSelectRef.current?.("");
-              }}
-              onTouchEnd={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                if (selectedIncident) setClosedId(selectedIncident.id);
-                else setClosedId("all");
-                onSelectRef.current?.("");
-              }}
-              className="h-8 w-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center font-bold text-base transition-colors shrink-0 cursor-pointer active:scale-90 shadow border border-slate-600/50"
-              title="Cerrar inspector táctico"
-              aria-label="Cerrar inspector táctico"
+              onClick={() => setBase("satellite")}
+              className={`px-2 py-1 text-[11px] font-bold rounded flex items-center gap-1 transition-colors cursor-pointer ${
+                base === "satellite" ? "bg-primary text-primary-foreground shadow" : "text-slate-400 hover:text-white"
+              }`}
             >
-              ✕
+              <Satellite className="w-3.5 h-3.5" />
+              <span>Satélite HD</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setBase("dark")}
+              className={`px-2 py-1 text-[11px] font-bold rounded flex items-center gap-1 transition-colors cursor-pointer ${
+                base === "dark" ? "bg-primary text-primary-foreground shadow" : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <MapIcon className="w-3.5 h-3.5" />
+              <span>Oscuro</span>
             </button>
           </div>
 
-          {/* Telemetría Térmica e Hídrica */}
-          <div className="grid grid-cols-3 gap-2 my-2.5 font-mono text-center">
-            <div className="bg-slate-900/80 border border-slate-700/60 rounded-lg p-1.5">
-              <div className="text-[9px] text-muted-foreground uppercase">Potencia FRP</div>
-              <div className="text-sm font-black text-amber-400">
-                {selectedIncident.frp ?? "N/D"} <span className="text-[10px] font-normal">MW</span>
-              </div>
-              <div className="text-[9px] text-amber-300/80">{classifyFrp(selectedIncident.frp).category}</div>
+          <button
+            type="button"
+            onClick={() => setClusteringEnabled(!clusteringEnabled)}
+            className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-colors flex items-center gap-1 cursor-pointer ${
+              clusteringEnabled
+                ? "bg-amber-500/20 text-amber-400 border-amber-500/50 shadow-sm"
+                : "bg-slate-800/60 text-slate-400 border-slate-700 hover:text-white"
+            }`}
+          >
+            <Flame className="w-3.5 h-3.5" />
+            <span>Clústeres {clusteringEnabled ? "ON" : "OFF"}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowWaterResources(!showWaterResources)}
+            className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-colors flex items-center gap-1 cursor-pointer ${
+              showWaterResources
+                ? "bg-sky-500/20 text-sky-400 border-sky-500/50 shadow-sm"
+                : "bg-slate-800/60 text-slate-400 border-slate-700 hover:text-white"
+            }`}
+            title="Ríos, Riachuelos, Lagunas y Tanques de Cochabamba"
+          >
+            <Droplets className="w-3.5 h-3.5" />
+            <span>Ríos/Tanques</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowVegetationZones(!showVegetationZones)}
+            className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-colors flex items-center gap-1 cursor-pointer ${
+              showVegetationZones
+                ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/50 shadow-sm"
+                : "bg-slate-800/60 text-slate-400 border-slate-700 hover:text-white"
+            }`}
+            title="Zonas de Vegetación e Inflamabilidad (Eucalipto, Ichu, Kewiña SERNAP)"
+          >
+            <Trees className="w-3.5 h-3.5" />
+            <span>Vegetación</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowSuggestedCisterns(!showSuggestedCisterns)}
+            className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-colors flex items-center gap-1 cursor-pointer ${
+              showSuggestedCisterns
+                ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/50 shadow-sm"
+                : "bg-slate-800/60 text-slate-400 border-slate-700 hover:text-white"
+            }`}
+            title="Zonas de Recurrencia Crítica y Pre-Posicionamiento de Cisternas GAMC"
+          >
+            <Truck className="w-3.5 h-3.5" />
+            <span>Cisternas</span>
+          </button>
+        </div>
+
+        {/* Panorámicas Rápidas + Píldora de Viento */}
+        <div className="flex flex-wrap items-center gap-1.5 ml-auto">
+          <button
+            type="button"
+            onClick={() => map.current?.flyTo([-16.5, -64.5], 6, { duration: 1 })}
+            className="px-2 py-1 text-[11px] font-bold rounded-lg border border-slate-700 bg-slate-800/70 text-slate-300 hover:text-white hover:bg-slate-700 flex items-center gap-1 cursor-pointer"
+            title="Vista Nacional de Bolivia"
+          >
+            <Flag className="w-3.5 h-3.5 text-red-400" />
+            <span className="hidden sm:inline">Ver Bolivia</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => map.current?.flyTo([-17.35, -65.85], 8, { duration: 0.9 })}
+            className="px-2 py-1 text-[11px] font-bold rounded-lg border border-cyan-500/40 bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/25 flex items-center gap-1 cursor-pointer"
+            title="Vista Departamento de Cochabamba"
+          >
+            <MapPin className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden sm:inline">Depto. Cochabamba</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => map.current?.flyTo([-17.3935, -66.157], 11, { duration: 0.8 })}
+            className="px-2 py-1 text-[11px] font-bold rounded-lg border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 flex items-center gap-1 cursor-pointer"
+            title="Vista Parque Tunari y Valle Central"
+          >
+            <Mountain className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="hidden sm:inline">Valle Tunari</span>
+          </button>
+
+          {/* Píldora de Viento Integrada */}
+          <div className="flex items-center gap-1.5 bg-sky-950/70 border border-sky-500/40 px-2.5 py-1 rounded-lg text-[11px] font-mono text-sky-300 shadow-sm">
+            <div
+              className="w-4 h-4 rounded-full bg-sky-500/20 border border-sky-400 flex items-center justify-center text-sky-300 font-bold text-[10px] transition-transform"
+              style={{ transform: `rotate(${(wind.deg + 180) % 360}deg)` }}
+            >
+              ↑
             </div>
-            <div className="bg-slate-900/80 border border-slate-700/60 rounded-lg p-1.5">
-              <div className="text-[9px] text-muted-foreground uppercase">Temp. Brillo</div>
-              <div className="text-sm font-black text-red-400">
-                ~{Math.round(300 + (selectedIncident.frp ?? 10) * 8.5)} <span className="text-[10px] font-normal">K</span>
-              </div>
-              <div className="text-[9px] text-red-300/80">Termosensor</div>
-            </div>
-            <div className="bg-slate-900/80 border border-slate-700/60 rounded-lg p-1.5">
-              <div className="text-[9px] text-muted-foreground uppercase">Agua Estimada</div>
-              <div className="text-sm font-black text-sky-400">
-                ~{classifyFrp(selectedIncident.frp).recommendedWaterLiters.toLocaleString()} <span className="text-[10px] font-normal">L</span>
-              </div>
-              <div className="text-[9px] text-sky-300/80">Extinción</div>
-            </div>
+            <span className="font-sans text-[10px] text-muted-foreground">VIENTO:</span>
+            <span className="font-bold">{Math.round(wind.kmh)} km/h</span>
+            <span className="text-[10px] text-amber-300 font-semibold">{wind.deg}° ➔ {(wind.deg + 180) % 360}°</span>
           </div>
+        </div>
+      </div>
 
-          {/* Sección de Propagación a Sotavento */}
-          {selectedForecast && (
-            <div className="bg-slate-900/90 border border-amber-500/40 rounded-xl p-2.5 my-2.5 text-[11px] space-y-1.5">
-              <div className="flex items-center justify-between font-bold text-amber-400 text-xs">
-                <span className="flex items-center gap-1">
-                  💨 Vector de Propagación del Fuego
-                </span>
-                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">
-                  ROS: ~{selectedForecast.rateOfSpreadKmH} km/h
-                </span>
-              </div>
-              <div className="text-muted-foreground leading-snug">
-                Viento sopla a <b className="text-foreground">{Math.round(wind.kmh)} km/h</b> desde <b className="text-foreground">{wind.deg}°</b> hacia <b className="text-amber-300">{selectedForecast.windCardinalTo} ({Math.round(selectedForecast.bearingTo)}°)</b>.
-              </div>
-              {/* Horizontes */}
-              <div className="grid grid-cols-3 gap-1 pt-1 text-[10px] font-mono text-center">
-                <div className="bg-red-950/60 border border-red-500/50 rounded p-1">
-                  <div className="text-red-400 font-bold">30 min</div>
-                  <div className="text-foreground font-semibold">+{ (selectedForecast.rateOfSpreadKmH * 0.5).toFixed(1) } km</div>
-                  <div className="text-[8px] text-red-300">Ataque Rápido</div>
-                </div>
-                <div className="bg-orange-950/60 border border-orange-500/50 rounded p-1">
-                  <div className="text-orange-400 font-bold">1 hora</div>
-                  <div className="text-foreground font-semibold">+{ (selectedForecast.rateOfSpreadKmH * 1.0).toFixed(1) } km</div>
-                  <div className="text-[8px] text-orange-300">Línea Defensa</div>
-                </div>
-                <div className="bg-amber-950/60 border border-amber-500/50 rounded p-1">
-                  <div className="text-amber-400 font-bold">2 horas</div>
-                  <div className="text-foreground font-semibold">+{ (selectedForecast.rateOfSpreadKmH * 2.0).toFixed(1) } km</div>
-                  <div className="text-[8px] text-amber-300">Evacuación</div>
-                </div>
-              </div>
+      {/* LIENZO DEL MAPA LEAFLET */}
+      <div className="relative flex-1 w-full min-h-[460px]">
+        <div ref={el} className="h-full w-full min-h-[460px]" />
 
-              {/* Comunidades en trayectoria */}
-              {selectedForecast.threatenedCommunities.length > 0 ? (
-                <div className="mt-2 pt-1.5 border-t border-slate-700/60">
-                  <div className="text-[10px] font-bold text-red-400 flex items-center gap-1 mb-1">
-                    ⚠️ Comunidades en Trayectoria Directa:
-                  </div>
-                  <div className="space-y-1">
-                    {selectedForecast.threatenedCommunities.slice(0, 3).map((comm, idx) => (
-                      <div key={idx} className="flex items-center justify-between bg-red-950/40 border border-red-800/40 rounded px-2 py-1 text-[10px]">
-                        <span className="font-semibold text-foreground truncate">{comm.name}</span>
-                        <span className="font-mono text-red-300 shrink-0 ml-1">
-                          {comm.distKm} km · ETA: ~{comm.etaMin} min
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-[10px] text-emerald-400/90 flex items-center gap-1 pt-1">
-                  ✅ Sin asentamientos urbanos en el cono directo a 2 horas.
-                </div>
-              )}
-            </div>
-          )}
+        {/* Capa acelerada por GPU WebGL / Shader Canvas */}
+        <WebGLThermalLayer
+          map={map.current}
+          clusters={clusters}
+          enabled={webglEnabled}
+          heatmapEnabled={heatmapEnabled}
+          windFlowEnabled={windFlowEnabled}
+          wind={wind}
+          center={center}
+        />
 
-          {/* Recurso Hídrico más cercano */}
-          {nearestWaterSelected && (
-            <div className="bg-slate-900/80 border border-sky-500/30 rounded-xl p-2.5 my-2.5 text-[11px] flex items-center justify-between gap-2">
+        {/* DOCK TÁCTICO FLOTANTE DE ZOOM Y GPS (right-3 top-3) */}
+        <div className="glass absolute right-3 top-3 z-[400] flex flex-col gap-1 rounded-xl p-1 shadow-2xl backdrop-blur-md border border-slate-700/60">
+          <button
+            type="button"
+            onClick={() => map.current?.zoomIn(0.5)}
+            className="h-8 w-8 rounded-lg bg-slate-900/90 text-primary hover:bg-primary hover:text-primary-foreground font-bold flex items-center justify-center transition-all shadow border border-primary/30 cursor-pointer"
+            title="Acercar (Zoom +0.5)"
+            aria-label="Acercar mapa"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => map.current?.zoomOut(0.5)}
+            className="h-8 w-8 rounded-lg bg-slate-900/90 text-primary hover:bg-primary hover:text-primary-foreground font-bold flex items-center justify-center transition-all shadow border border-primary/30 cursor-pointer"
+            title="Alejar (Zoom -0.5)"
+            aria-label="Alejar mapa"
+          >
+            <Minus className="w-4 h-4" />
+          </button>
+          <div className="h-px w-full bg-slate-700/60 my-0.5" />
+          <button
+            type="button"
+            onClick={() => {
+              if (selectedIncident) {
+                map.current?.flyTo([selectedIncident.lat, selectedIncident.lng], 14, { duration: 0.8 });
+              } else if (incidents.length > 0) {
+                const topFire = [...incidents].sort((a, b) => (b.frp ?? 0) - (a.frp ?? 0))[0]!;
+                onSelectRef.current?.(topFire.id);
+                map.current?.flyTo([topFire.lat, topFire.lng], 14, { duration: 0.8 });
+              }
+            }}
+            className="h-8 w-8 rounded-lg bg-slate-900/90 text-amber-400 hover:bg-amber-500 hover:text-slate-950 font-bold flex items-center justify-center transition-all shadow border border-amber-500/40 cursor-pointer"
+            title="Centrar en Foco Activo Crítico"
+            aria-label="Centrar foco activo"
+          >
+            <Crosshair className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={toggleLocate}
+            className={`h-8 w-8 rounded-lg font-bold flex items-center justify-center transition-all shadow border cursor-pointer ${
+              locating
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-slate-900/90 text-slate-300 hover:bg-slate-800 border-slate-700"
+            }`}
+            title="Mi Ubicación GPS en Vivo"
+            aria-label="Mi GPS"
+          >
+            <Navigation className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Selector Táctico de Modo y Leyenda Preventiva (Fase 1) */}
+        <PreventiveLegend
+          mode={activeMode}
+          onModeChange={handleModeChange}
+          className="absolute left-3 bottom-3 z-[400]"
+        />
+
+        {/* INSPECTOR TÁCTICO FLOTANTE ANCLADO (REEMPLAZA VENTANAS PERDIDAS / POPUPS DESBORDADOS) */}
+        {isInspectorVisible && selectedIncident && (
+          <div
+            role="dialog"
+            aria-label="Inspector de Emergencia Táctica"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            className="glass absolute bottom-2 sm:bottom-12 right-1 sm:right-4 left-1 sm:left-auto z-[500] w-auto sm:w-[380px] max-h-[calc(100%-16px)] sm:max-h-[72vh] overflow-y-auto rounded-2xl p-3.5 shadow-2xl backdrop-blur-xl border border-primary/50 text-foreground animate-in fade-in slide-in-from-bottom-2 duration-150"
+          >
+            {/* Cabecera */}
+            <div className="flex items-start justify-between gap-2 pb-2 border-b border-border/50">
               <div className="min-w-0">
-                <div className="text-[10px] font-bold text-sky-400 flex items-center gap-1">
-                  💧 Fuente Hídrica más Cercana:
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span
+                    className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1 ${
+                      selectedIncident.status === "Controlado"
+                        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                        : (selectedIncident.frp ?? 0) < 8
+                        ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"
+                        : "bg-red-500/20 text-red-400 border border-red-500/40 ring-1 ring-red-500/30"
+                    }`}
+                  >
+                    {selectedIncident.status === "Controlado" ? (
+                      <>
+                        <ShieldCheck className="w-3 h-3 text-emerald-400" /> Foco Controlado
+                      </>
+                    ) : (selectedIncident.frp ?? 0) < 8 ? (
+                      <>
+                        <Activity className="w-3 h-3 text-amber-400" /> Anomalía Inicial (&lt;300°C)
+                      </>
+                    ) : (
+                      <>
+                        <Flame className="w-3 h-3 text-red-400" /> Foco Activo Confirmado
+                      </>
+                    )}
+                  </span>
+                  <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                    {selectedIncident.source}
+                  </span>
                 </div>
-                <div className="font-semibold text-foreground text-xs truncate">
-                  {nearestWaterSelected.resource.name} ({nearestWaterSelected.resource.categoryLabel})
-                </div>
-                <div className="text-[10px] text-muted-foreground">
-                  A {nearestWaterSelected.distKm} km · {nearestWaterSelected.resource.flowStatus}
+                <h4 className="font-bold text-sm text-foreground mt-1 truncate">
+                  {selectedIncident.zone}
+                </h4>
+                <div className="text-[11px] font-mono text-muted-foreground flex items-center gap-2">
+                  <span>
+                    {selectedIncident.lat.toFixed(5)}, {selectedIncident.lng.toFixed(5)}
+                  </span>
+                  <span>·</span>
+                  <span>Conf: {selectedIncident.confidence ?? 95}%</span>
                 </div>
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  map.current?.flyTo([nearestWaterSelected.resource.lat, nearestWaterSelected.resource.lng], 14, { duration: 0.8 });
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  if (selectedIncident) setClosedId(selectedIncident.id);
+                  else setClosedId("all");
+                  onSelectRef.current?.("");
                 }}
-                className="px-2.5 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 text-[10px] font-bold border border-sky-500/40 shrink-0 transition-colors"
-                title="Ver fuente de agua en el mapa"
+                onTouchEnd={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  if (selectedIncident) setClosedId(selectedIncident.id);
+                  else setClosedId("all");
+                  onSelectRef.current?.("");
+                }}
+                className="h-8 w-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center font-bold transition-colors shrink-0 cursor-pointer active:scale-90 shadow border border-slate-600/50"
+                title="Cerrar inspector táctico"
+                aria-label="Cerrar inspector táctico"
               >
-                Ver Fuente ➔
+                <X className="w-4 h-4" />
               </button>
             </div>
-          )}
 
-          {/* Botones de Acción Táctica Inmediata */}
-          <div className="grid grid-cols-2 gap-2 mt-3 pt-2 border-t border-border/50">
-            <button
-              type="button"
-              onClick={() => planRoute("access", selectedIncident.lat, selectedIncident.lng)}
-              className="w-full flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-[11px] transition-all shadow-md active:scale-95 cursor-pointer"
-            >
-              🚒 Ruta Bomberos
-            </button>
-            <button
-              type="button"
-              onClick={() => planRoute("escape", selectedIncident.lat, selectedIncident.lng)}
-              className="w-full flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[11px] transition-all shadow-md active:scale-95 cursor-pointer"
-            >
-              🏃 Ruta Escape
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                map.current?.flyTo([selectedIncident.lat, selectedIncident.lng], 15, { duration: 0.8 });
-              }}
-              className="w-full flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-foreground font-bold text-[11px] border border-slate-700 transition-all active:scale-95 cursor-pointer"
-            >
-              🎯 Centrar Foco
-            </button>
-            <a
-              href={whatsappUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="w-full flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-extrabold text-[11px] border border-emerald-500/50 transition-all active:scale-95 text-center cursor-pointer"
-            >
-              📲 WhatsApp 119
-            </a>
-          </div>
-        </div>
-      )}
-
-      {/* Modal / Toast de Ruta de Evacuación */}
-      {routeInfo &&
-        (() => {
-          const [txt = "", link] = routeInfo.split("|");
-          const [title, detail] = txt.includes(": ")
-            ? [txt.slice(0, txt.indexOf(": ")), txt.slice(txt.indexOf(": ") + 2)]
-            : ["Ruta", txt];
-          return (
-            <div
-              role="status"
-              aria-live="polite"
-              className="glass absolute bottom-24 left-2 right-14 z-[401] max-h-[30%] overflow-y-auto rounded-md p-2 text-foreground sm:right-auto sm:max-w-sm"
-            >
-              <div className="flex items-start gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className="text-[11px] font-bold uppercase tracking-wide text-primary">{title}</div>
-                  <div className="text-sm leading-snug">{detail}</div>
+            {/* Telemetría Térmica e Hídrica */}
+            <div className="grid grid-cols-3 gap-2 my-2.5 font-mono text-center">
+              <div className="bg-slate-900/80 border border-slate-700/60 rounded-lg p-1.5">
+                <div className="text-[9px] text-muted-foreground uppercase">Potencia FRP</div>
+                <div className="text-sm font-black text-amber-400">
+                  {selectedIncident.frp ?? "N/D"} <span className="text-[10px] font-normal">MW</span>
                 </div>
-                <TacButton
-                  tone="ghost"
-                  onClick={() => {
-                    routeRequest.current++;
-                    setRouteInfo("");
-                    routeLayer.current?.clearLayers();
-                  }}
-                  className="h-9 w-9 shrink-0 p-0 text-lg"
-                  aria-label="Cerrar ruta"
-                >
-                  ✕
-                </TacButton>
+                <div className="text-[9px] text-amber-300/80">{classifyFrp(selectedIncident.frp).category}</div>
               </div>
-              {link && (
-                <a
-                  href={link}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-2 flex min-h-11 items-center justify-center rounded bg-primary px-3 text-sm font-bold text-primary-foreground"
-                >
-                  Navegar con GPS
-                </a>
-              )}
+              <div className="bg-slate-900/80 border border-slate-700/60 rounded-lg p-1.5">
+                <div className="text-[9px] text-muted-foreground uppercase">Temp. Brillo</div>
+                <div className="text-sm font-black text-red-400">
+                  ~{Math.round(300 + (selectedIncident.frp ?? 10) * 8.5)} <span className="text-[10px] font-normal">K</span>
+                </div>
+                <div className="text-[9px] text-red-300/80">Termosensor</div>
+              </div>
+              <div className="bg-slate-900/80 border border-slate-700/60 rounded-lg p-1.5">
+                <div className="text-[9px] text-muted-foreground uppercase">Agua Estimada</div>
+                <div className="text-sm font-black text-sky-400">
+                  ~{classifyFrp(selectedIncident.frp).recommendedWaterLiters.toLocaleString()} <span className="text-[10px] font-normal">L</span>
+                </div>
+                <div className="text-[9px] text-sky-300/80">Extinción</div>
+              </div>
             </div>
-          );
-        })()}
 
-      {mapError && (
-        <details className="glass absolute bottom-20 left-2 right-14 z-[400] max-h-24 overflow-y-auto rounded-md p-2 text-[10px]">
-          <summary className="cursor-pointer text-warning">Estado del mapa</summary>
-          <p role="status">{mapError}</p>
-        </details>
-      )}
+            {/* Sección de Propagación a Sotavento */}
+            {selectedForecast && (
+              <div className="bg-slate-900/90 border border-amber-500/40 rounded-xl p-2.5 my-2.5 text-[11px] space-y-1.5">
+                <div className="flex items-center justify-between font-bold text-amber-400 text-xs">
+                  <span className="flex items-center gap-1">
+                    <Wind className="w-3.5 h-3.5 text-amber-400" /> Vector de Propagación del Fuego
+                  </span>
+                  <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">
+                    ROS: ~{selectedForecast.rateOfSpreadKmH} km/h
+                  </span>
+                </div>
+                <div className="text-muted-foreground leading-snug">
+                  Viento sopla a <b className="text-foreground">{Math.round(wind.kmh)} km/h</b> desde <b className="text-foreground">{wind.deg}°</b> hacia <b className="text-amber-300">{selectedForecast.windCardinalTo} ({Math.round(selectedForecast.bearingTo)}°)</b>.
+                </div>
+                {/* Horizontes */}
+                <div className="grid grid-cols-3 gap-1 pt-1 text-[10px] font-mono text-center">
+                  <div className="bg-red-950/60 border border-red-500/50 rounded p-1">
+                    <div className="text-red-400 font-bold">30 min</div>
+                    <div className="text-foreground font-semibold">+{ (selectedForecast.rateOfSpreadKmH * 0.5).toFixed(1) } km</div>
+                    <div className="text-[8px] text-red-300">Ataque Rápido</div>
+                  </div>
+                  <div className="bg-orange-950/60 border border-orange-500/50 rounded p-1">
+                    <div className="text-orange-400 font-bold">1 hora</div>
+                    <div className="text-foreground font-semibold">+{ (selectedForecast.rateOfSpreadKmH * 1.0).toFixed(1) } km</div>
+                    <div className="text-[8px] text-orange-300">Línea Defensa</div>
+                  </div>
+                  <div className="bg-amber-950/60 border border-amber-500/50 rounded p-1">
+                    <div className="text-amber-400 font-bold">2 horas</div>
+                    <div className="text-foreground font-semibold">+{ (selectedForecast.rateOfSpreadKmH * 2.0).toFixed(1) } km</div>
+                    <div className="text-[8px] text-amber-300">Evacuación</div>
+                  </div>
+                </div>
 
-      {/* Pie de Telemetría Táctica */}
-      <div className="glass pointer-events-none absolute bottom-1.5 left-2 right-12 z-[400] rounded px-2 py-0.5 font-mono text-[9px] text-foreground flex items-center justify-between backdrop-blur-md">
-        <span>Esri HD · Tunari SERNAP · 11 Cisternas Municipales 🚒</span>
-        <span className="text-primary font-bold">Zoom {Math.round(currentZoom * 10) / 10} · {currentZoom >= 12 ? "Modo Táctico 375m" : "Modo Clúster Macro"}</span>
+                {/* Comunidades en trayectoria */}
+                {selectedForecast.threatenedCommunities.length > 0 ? (
+                  <div className="mt-2 pt-1.5 border-t border-slate-700/60">
+                    <div className="text-[10px] font-bold text-red-400 flex items-center gap-1 mb-1">
+                      <AlertTriangle className="w-3.5 h-3.5 text-red-400" /> Comunidades en Trayectoria Directa:
+                    </div>
+                    <div className="space-y-1">
+                      {selectedForecast.threatenedCommunities.slice(0, 3).map((comm, idx) => (
+                        <div key={idx} className="flex items-center justify-between bg-red-950/40 border border-red-800/40 rounded px-2 py-1 text-[10px]">
+                          <span className="font-semibold text-foreground truncate">{comm.name}</span>
+                          <span className="font-mono text-red-300 shrink-0 ml-1">
+                            {comm.distKm} km · ETA: ~{comm.etaMin} min
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-[10px] text-emerald-400/90 flex items-center gap-1 pt-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Sin asentamientos urbanos en el cono directo a 2 horas.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Recurso Hídrico más cercano */}
+            {nearestWaterSelected && (
+              <div className="bg-slate-900/80 border border-sky-500/30 rounded-xl p-2.5 my-2.5 text-[11px] flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-[10px] font-bold text-sky-400 flex items-center gap-1">
+                    <Droplets className="w-3.5 h-3.5 text-sky-400" /> Fuente Hídrica más Cercana:
+                  </div>
+                  <div className="font-semibold text-foreground text-xs truncate">
+                    {nearestWaterSelected.resource.name} ({nearestWaterSelected.resource.categoryLabel})
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">
+                    A {nearestWaterSelected.distKm} km · {nearestWaterSelected.resource.flowStatus}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    map.current?.flyTo([nearestWaterSelected.resource.lat, nearestWaterSelected.resource.lng], 14, { duration: 0.8 });
+                  }}
+                  className="px-2.5 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 text-[10px] font-bold border border-sky-500/40 shrink-0 transition-colors cursor-pointer"
+                  title="Ver fuente de agua en el mapa"
+                >
+                  Ver Fuente ➔
+                </button>
+              </div>
+            )}
+
+            {/* Botones de Acción Táctica Inmediata */}
+            <div className="grid grid-cols-2 gap-2 mt-3 pt-2 border-t border-border/50">
+              <button
+                type="button"
+                onClick={() => planRoute("access", selectedIncident.lat, selectedIncident.lng)}
+                className="w-full flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-[11px] transition-all shadow-md active:scale-95 cursor-pointer"
+              >
+                <Truck className="w-3.5 h-3.5" /> Ruta Bomberos
+              </button>
+              <button
+                type="button"
+                onClick={() => planRoute("escape", selectedIncident.lat, selectedIncident.lng)}
+                className="w-full flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[11px] transition-all shadow-md active:scale-95 cursor-pointer"
+              >
+                <Footprints className="w-3.5 h-3.5" /> Ruta Escape
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  map.current?.flyTo([selectedIncident.lat, selectedIncident.lng], 15, { duration: 0.8 });
+                }}
+                className="w-full flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-foreground font-bold text-[11px] border border-slate-700 transition-all active:scale-95 cursor-pointer"
+              >
+                <Crosshair className="w-3.5 h-3.5" /> Centrar Foco
+              </button>
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-extrabold text-[11px] border border-emerald-500/50 transition-all active:scale-95 text-center cursor-pointer"
+              >
+                <Share2 className="w-3.5 h-3.5" /> WhatsApp 119
+              </a>
+            </div>
+          </div>
+        )}
+
+        {/* Modal / Toast de Ruta de Evacuación */}
+        {routeInfo &&
+          (() => {
+            const [txt = "", link] = routeInfo.split("|");
+            const [title, detail] = txt.includes(": ")
+              ? [txt.slice(0, txt.indexOf(": ")), txt.slice(txt.indexOf(": ") + 2)]
+              : ["Ruta", txt];
+            return (
+              <div
+                role="status"
+                aria-live="polite"
+                className="glass absolute bottom-24 left-2 right-14 z-[401] max-h-[30%] overflow-y-auto rounded-md p-2 text-foreground sm:right-auto sm:max-w-sm"
+              >
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[11px] font-bold uppercase tracking-wide text-primary">{title}</div>
+                    <div className="text-sm leading-snug">{detail}</div>
+                  </div>
+                  <TacButton
+                    tone="ghost"
+                    onClick={() => {
+                      routeRequest.current++;
+                      setRouteInfo("");
+                      routeLayer.current?.clearLayers();
+                    }}
+                    className="h-9 w-9 shrink-0 p-0 text-lg flex items-center justify-center"
+                    aria-label="Cerrar ruta"
+                  >
+                    <X className="w-4 h-4" />
+                  </TacButton>
+                </div>
+                {link && (
+                  <a
+                    href={link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-2 flex min-h-11 items-center justify-center rounded bg-primary px-3 text-sm font-bold text-primary-foreground"
+                  >
+                    Navegar con GPS
+                  </a>
+                )}
+              </div>
+            );
+          })()}
+
+        {mapError && (
+          <details className="glass absolute bottom-20 left-2 right-14 z-[400] max-h-24 overflow-y-auto rounded-md p-2 text-[10px]">
+            <summary className="cursor-pointer text-warning">Estado del mapa</summary>
+            <p role="status">{mapError}</p>
+          </details>
+        )}
+
+        {/* Pie de Telemetría Táctica */}
+        <div className="glass pointer-events-none absolute bottom-1.5 left-2 right-12 z-[400] rounded px-2 py-0.5 font-mono text-[9px] text-foreground flex items-center justify-between backdrop-blur-md">
+          <span>Esri HD · Tunari SERNAP · 11 Cisternas GAMC / SEMAPA</span>
+          <span className="text-primary font-bold">Zoom {Math.round(currentZoom * 10) / 10} · {currentZoom >= 12 ? "Modo Táctico 375m" : "Modo Clúster Macro"}</span>
+        </div>
       </div>
     </div>
   );

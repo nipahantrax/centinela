@@ -1375,19 +1375,27 @@ export const COCHABAMBA_MUNICIPALITIES_POLYGONS: MunicipalityBoundary[] = [
   },
 ];
 
+export interface CartographicLabel {
+  label: string;
+  lat: number;
+  lng: number;
+  id: string;
+  minZoom: number;
+}
+
 // Etiquetas cartográficas permanentes de alta legibilidad
-export const CARTOGRAPHIC_LABELS = [
-  { label: "📍 COCHABAMBA (Cercado)", lat: -17.3895, lng: -66.1568, id: "cercado" },
-  { label: "📍 SACABA (Prov. Chapare)", lat: -17.4042, lng: -66.0408, id: "sacaba" },
-  { label: "📍 TIQUIPAYA", lat: -17.3380, lng: -66.2158, id: "tiquipaya" },
-  { label: "📍 QUILLACOLLO", lat: -17.3925, lng: -66.2783, id: "quillacollo" },
-  { label: "📍 VINTO", lat: -17.3872, lng: -66.3180, id: "vinto" },
-  { label: "📍 COLCAPIRHUA", lat: -17.3890, lng: -66.2390, id: "colcapirhua" },
-  { label: "📍 SIPE SIPE", lat: -17.4520, lng: -66.3620, id: "sipesipe" },
-  { label: "📍 COLOMI (Represa Corani)", lat: -17.3360, lng: -65.8710, id: "colomi" },
-  { label: "📍 MOROCHATA (Prov. Ayopaya)", lat: -17.2350, lng: -66.5260, id: "morochata" },
-  { label: "📍 ARBIETO / LA ANGOSTURA", lat: -17.5350, lng: -65.9850, id: "arbieto" },
-  { label: "📍 TAPACARÍ (Prov. Tapacarí)", lat: -17.5250, lng: -66.6100, id: "tapacari" },
+export const CARTOGRAPHIC_LABELS: readonly CartographicLabel[] = [
+  { label: "COCHABAMBA (Cercado)", lat: -17.3895, lng: -66.1568, id: "cercado", minZoom: 8 },
+  { label: "SACABA (Prov. Chapare)", lat: -17.4042, lng: -66.0408, id: "sacaba", minZoom: 8 },
+  { label: "TIQUIPAYA", lat: -17.3380, lng: -66.2158, id: "tiquipaya", minZoom: 9 },
+  { label: "QUILLACOLLO", lat: -17.3980, lng: -66.2820, id: "quillacollo", minZoom: 9 },
+  { label: "COLCAPIRHUA", lat: -17.3920, lng: -66.2350, id: "colcapirhua", minZoom: 11 },
+  { label: "VINTO", lat: -17.3872, lng: -66.3250, id: "vinto", minZoom: 11 },
+  { label: "SIPE SIPE", lat: -17.4520, lng: -66.3620, id: "sipesipe", minZoom: 11 },
+  { label: "COLOMI (Represa Corani)", lat: -17.3360, lng: -65.8710, id: "colomi", minZoom: 8 },
+  { label: "MOROCHATA (Prov. Ayopaya)", lat: -17.2350, lng: -66.5260, id: "morochata", minZoom: 8 },
+  { label: "ARBIETO / LA ANGOSTURA", lat: -17.5350, lng: -65.9850, id: "arbieto", minZoom: 8 },
+  { label: "TAPACARÍ (Prov. Tapacarí)", lat: -17.5250, lng: -66.6100, id: "tapacari", minZoom: 8 },
 ] as const;
 
 export const WEEK_SERIES = [

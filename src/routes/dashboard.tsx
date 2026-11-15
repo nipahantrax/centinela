@@ -25,6 +25,10 @@ import {
   Radio,
   Download,
   FileSpreadsheet,
+  Map as MapIcon,
+  Trees,
+  Footprints,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Brand, TacButton } from "@/components/centinela/Brand";
@@ -289,17 +293,17 @@ function Dashboard() {
 
         <div className="flex items-center gap-2 flex-wrap ml-auto">
           <nav className="hidden xl:flex items-center gap-2 font-mono text-xs mr-2">
-            <Link to="/dashboard" className="px-2.5 py-1 rounded bg-primary/20 text-primary font-bold border border-primary/40">
-              🗺️ {t("navTactical")}
+            <Link to="/dashboard" className="px-2.5 py-1 rounded bg-primary/20 text-primary font-bold border border-primary/40 flex items-center gap-1.5">
+              <MapIcon className="h-3.5 w-3.5" /> <span>{t("navTactical")}</span>
             </Link>
-            <Link to="/reportes" className="px-2.5 py-1 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/40 transition-colors">
-              🚨 {t("navAlerts")}
+            <Link to="/reportes" className="px-2.5 py-1 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/40 transition-colors flex items-center gap-1.5">
+              <AlertTriangle className="h-3.5 w-3.5 text-red-400" /> <span>{t("navAlerts")}</span>
             </Link>
-            <Link to="/movil" className="px-2.5 py-1 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/40 transition-colors">
-              📱 {t("navMobile")}
+            <Link to="/movil" className="px-2.5 py-1 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/40 transition-colors flex items-center gap-1.5">
+              <Radio className="h-3.5 w-3.5 text-primary" /> <span>{t("navMobile")}</span>
             </Link>
-            <Link to="/proyecto" className="px-2.5 py-1 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/40 transition-colors">
-              🏛️ {t("navProject")}
+            <Link to="/proyecto" className="px-2.5 py-1 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/40 transition-colors flex items-center gap-1.5">
+              <Mountain className="h-3.5 w-3.5 text-emerald-400" /> <span>{t("navProject")}</span>
             </Link>
           </nav>
 
@@ -326,8 +330,8 @@ function Dashboard() {
         </div>
       </header>
 
-      {/* 2. MAIN RESPONSIVE TACTICAL GRID (OPTIMIZADO PARA PC WIDESCREEN 1920px, TABLET Y MÓVIL) */}
-      <div className="w-full max-w-[1920px] mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 lg:gap-5 px-3 lg:px-5 py-3 lg:py-4 items-start pb-24 lg:pb-8 flex-1">
+      {/* 2. MAIN RESPONSIVE TACTICAL GRID (OPTIMIZADO PARA PC WIDESCREEN 100vw, TABLET Y MÓVIL) */}
+      <div className="w-full max-w-none min-h-screen grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-3.5 px-2.5 lg:px-4 py-3 items-start pb-24 lg:pb-8 flex-1">
         {/* ======================================================== */}
         {/* COLUMNA IZQUIERDA: TELEMETRÍA, BRÚJULA Y CLIMA NASA     */}
         {/* ======================================================== */}
@@ -458,10 +462,10 @@ function Dashboard() {
 
           {/* MÓDULO 3: TARJETA DEDICADA "ÍNDICE DE COMBUSTIBLE VEGETAL LOCAL" */}
           <Panel
-            title="🌲 Índice de Combustible Vegetal Local"
+            title="Índice de Combustible Vegetal Local"
             right={
-              <span className="font-mono text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded">
-                Factor {activeNode.botany.overallMultiplier}x
+              <span className="font-mono text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded flex items-center gap-1">
+                <Trees className="h-3.5 w-3.5 text-emerald-400" /> Factor {activeNode.botany.overallMultiplier}x
               </span>
             }
           >
@@ -475,7 +479,7 @@ function Dashboard() {
                 <div className="rounded border border-red-500/50 bg-red-500/15 p-2 text-[11px] text-red-300 font-bold flex items-start gap-1.5">
                   <ShieldAlert className="h-4 w-4 shrink-0 text-red-400 mt-0.5" />
                   <span>
-                    ⚠️ ALERTA SERNAP: Presencia de{" "}
+                    ALERTA SERNAP: Presencia de{" "}
                     {activeNode.botany.dominantSpecies
                       .filter((s) => s.isProtected)
                       .map((s) => s.commonName)
@@ -589,8 +593,8 @@ function Dashboard() {
             </button>
           </div>
 
-          {/* MAPA TÁCTICO GIS HERO PROTAGONISTA (WIDESCREEN 100% ANCHO, 76vh EN PC) */}
-          <div className="glass relative min-h-[680px] lg:h-[76vh] w-full overflow-hidden rounded-xl border border-primary/40 shadow-2xl">
+          {/* MAPA TÁCTICO GIS HERO PROTAGONISTA (WIDESCREEN 100% ANCHO, 78vh EN PC) */}
+          <div className="w-full min-h-[620px] lg:h-[78vh]">
             <TacticalMap
               incidents={filteredIncidents}
               selectedId={selectedId || undefined}
@@ -607,6 +611,10 @@ function Dashboard() {
               mode={tacticalMode}
               onModeChange={setTacticalMode}
               selectedRegionId={nasa.regionId}
+              onSelectRegion={(id) => {
+                nasa.setRegion(id);
+                if (id !== "all") setNodeId(id);
+              }}
             />
           </div>
 
@@ -617,7 +625,7 @@ function Dashboard() {
               onClick={handleWhatsAppSelected}
               className="flex items-center justify-center gap-2 rounded-lg border border-green-500/50 bg-green-500/20 py-2.5 px-3 font-mono text-xs font-bold text-green-400 hover:bg-green-500/30 transition-colors shadow-sm cursor-pointer"
             >
-              <Share2 className="h-4 w-4 shrink-0" /> [ 📲 {t("dispatchWhatsApp")} ]
+              <Share2 className="h-4 w-4 shrink-0" /> [ {t("dispatchWhatsApp")} ]
             </button>
             <a
               href={selected?.hydrant?.distKm !== null && selected?.lat && selected?.lng
@@ -627,13 +635,13 @@ function Dashboard() {
               rel="noreferrer"
               className="flex items-center justify-center gap-2 rounded-lg border border-sky-500/40 bg-sky-500/15 py-2.5 px-3 font-mono text-xs font-bold text-sky-400 hover:bg-sky-500/25 transition-colors cursor-pointer"
             >
-              <Truck className="h-4 w-4 shrink-0" /> [ 🚒 {t("routeAccess")} ]
+              <Truck className="h-4 w-4 shrink-0" /> [ {t("routeAccess")} ]
             </a>
             <Link
               to="/reportes"
               className="flex items-center justify-center gap-2 rounded-lg border border-border/80 bg-secondary/50 py-2.5 px-3 font-mono text-xs font-semibold text-foreground hover:bg-secondary transition-colors cursor-pointer"
             >
-              <Camera className="h-4 w-4 shrink-0 text-primary" /> [ 📸 {t("uploadEvidence")} ]
+              <Camera className="h-4 w-4 shrink-0 text-primary" /> [ {t("uploadEvidence")} ]
             </Link>
           </div>
 
@@ -853,26 +861,26 @@ function Dashboard() {
                 <div className="grid grid-cols-2 gap-2">
                   <TacButton
                     tone={sirenArmed ? "danger" : "ghost"}
-                    className="text-xs font-bold"
+                    className="text-xs font-bold flex items-center justify-center gap-1.5"
                     onClick={() => void toggleSiren()}
                   >
                     <Siren className={`h-3.5 w-3.5 ${sirenArmed ? "animate-spin text-destructive" : ""}`} />
-                    {sirenArmed ? "🚨 Sirena ON" : "🚨 Activar Sirena"}
+                    <span>{sirenArmed ? "Sirena ON" : "Activar Sirena"}</span>
                   </TacButton>
                   <TacButton
                     tone="primary"
-                    className="text-xs font-bold"
+                    className="text-xs font-bold flex items-center justify-center gap-1.5"
                     onClick={() => {
                       const text = `CENTINELA ICS-209 · REPORTE TÁCTICO\nFoco: ${selected.id}\nZona: ${selected.zone}\nCoordenadas: ${selected.lat.toFixed(5)}, ${selected.lng.toFixed(5)}\nIntensidad (FRP): ${selected.frp ?? "N/D"} MW (${frpInfo?.category ?? "N/D"})\nFuente: ${selected.source}\nConfianza: ${selected.confidence ?? "N/D"}%\nAgua recomendada: ~${frpInfo?.recommendedWaterLiters ?? 3000} L\nGoogle Maps: https://www.google.com/maps?q=${selected.lat},${selected.lng}`;
                       void navigator.clipboard.writeText(text);
                       toast.success("Ficha ICS-209 copiada");
                     }}
                   >
-                    <Copy className="h-3.5 w-3.5" /> [ 📋 Copiar ICS-209 ]
+                    <Copy className="h-3.5 w-3.5" /> [ Copiar ICS-209 ]
                   </TacButton>
                 </div>
-                <TacButton tone="danger" className="text-xs font-bold w-full" onClick={() => setChannelOpen(true)}>
-                  <Radio className="h-3.5 w-3.5 text-white animate-pulse" /> [ 📡 SOS / Alerta Comunitaria ]
+                <TacButton tone="danger" className="text-xs font-bold w-full flex items-center justify-center gap-2" onClick={() => setChannelOpen(true)}>
+                  <Radio className="h-3.5 w-3.5 text-white animate-pulse" /> [ SOS / Alerta Comunitaria ]
                 </TacButton>
               </div>
             </>
@@ -890,14 +898,14 @@ function Dashboard() {
               <div className="grid grid-cols-2 gap-2">
                 <TacButton
                   tone={sirenArmed ? "danger" : "ghost"}
-                  className="text-xs font-bold"
+                  className="text-xs font-bold flex items-center justify-center gap-1.5"
                   onClick={() => void toggleSiren()}
                 >
                   <Siren className={`h-3.5 w-3.5 ${sirenArmed ? "animate-spin text-destructive" : ""}`} />
-                  {sirenArmed ? "🚨 Sirena ON" : "🚨 Activar Sirena"}
+                  <span>{sirenArmed ? "Sirena ON" : "Activar Sirena"}</span>
                 </TacButton>
-                <TacButton tone="danger" className="text-xs font-bold" onClick={() => setChannelOpen(true)}>
-                  <Radio className="h-3.5 w-3.5 text-white animate-pulse" /> [ 📡 SOS ]
+                <TacButton tone="danger" className="text-xs font-bold flex items-center justify-center gap-1.5" onClick={() => setChannelOpen(true)}>
+                  <Radio className="h-3.5 w-3.5 text-white animate-pulse" /> [ SOS ]
                 </TacButton>
               </div>
             </div>

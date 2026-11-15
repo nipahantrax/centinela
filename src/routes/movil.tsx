@@ -137,7 +137,7 @@ function Mobile() {
   };
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md md:max-w-4xl lg:max-w-5xl flex-col pb-24 overflow-x-hidden">
+    <div className="mx-auto flex min-h-screen w-full max-w-none lg:max-w-[1920px] px-2 sm:px-4 bg-[#030712] flex-col pb-24 overflow-x-hidden">
       {/* Banner Institucional Móvil GAMC */}
       <div className="bg-primary/20 border-b border-primary/30 px-3 py-1.5 flex items-center justify-between text-[11px] font-mono">
         <span className="flex items-center gap-1.5 font-bold text-foreground">
@@ -317,6 +317,7 @@ function Mobile() {
           mode={tacticalMode}
           onModeChange={setTacticalMode}
           selectedRegionId={nasa.regionId}
+          onSelectRegion={(id) => nasa.setRegion(id)}
         />
 
         <TacButton
