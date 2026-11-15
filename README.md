@@ -2,6 +2,15 @@
 ### Gobierno Autónomo Municipal de Cochabamba (GAMC) · Parque Nacional Tunari · NASA Space Apps Challenge 2026
 **Desafío Oficial NASA:** *Harmonization of MODIS and VIIRS Hot Spots*
 
+[![Vercel Deployment](https://img.shields.io/badge/Vercel-Producci%C3%B3n%20Activa-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://centinelas-seven.vercel.app)
+[![Tests Passing](https://img.shields.io/badge/Vitest-65%2F65%20Passing-brightgreen?style=for-the-badge&logo=vitest&logoColor=white)](https://centinelas-seven.vercel.app)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Strict%200%20Errors-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://centinelas-seven.vercel.app)
+[![i18n Multi-Language](https://img.shields.io/badge/i18n-ES%20%7C%20QU%20%7C%20EN-orange?style=for-the-badge&logo=google-translate&logoColor=white)](https://centinelas-seven.vercel.app)
+
+🌐 **URL Oficial en Producción:** [https://centinelas-seven.vercel.app](https://centinelas-seven.vercel.app)  
+🛰️ **Centro de Mando Táctico:** [https://centinelas-seven.vercel.app/dashboard](https://centinelas-seven.vercel.app/dashboard)  
+📱 **Visor Táctico para Brigadistas:** [https://centinelas-seven.vercel.app/movil](https://centinelas-seven.vercel.app/movil)  
+
 ---
 
 ## 📖 Visión y Misión del Proyecto
@@ -34,19 +43,28 @@ El reto oficial de la NASA exige armonizar las lecturas radiométricas entre dos
 
 ## ⚡ Capacidades de Ingeniería y Operación
 
-### 1. Motor de Clustering WebGL Acelerado por GPU (`src/lib/webgl-clustering.ts`)
+### 1. Sistema Trilingüe Reactivo en Tiempo Real (`src/lib/i18n.tsx`)
+Conmutación reactiva instantánea sin recarga de página entre los 3 idiomas estratégicos del proyecto:
+- **🇪🇸 Español (ES):** Para mandos del GAMC, Bomberos 119, SAR Bolivia y ciudadanía urbana.
+- **🏔️ Quechua Boliviano / Runasimi (QU):** Lengua nativa valluna para comunarios, sindicatos agrarios y guardaparques SERNAP en las faldas del Tunari.
+- **🇺🇸 English (EN):** Presentación técnica formal para el jurado evaluador global de NASA Space Apps Challenge.
+
+### 2. Diseño Táctico Widescreen 1920px (Desktop Full-Width)
+* **Distribución en 3 Columnas Reales:** 
+  - **Columna Izquierda:** Velocímetro de riesgo unificado, telemetría NASA POWER, regla 30-30-30 y desglose botánico.
+  - **Columna Central Gigante:** Cinta interactiva de 11 municipios y mapa táctico satelital de alto contraste.
+  - **Columna Derecha:** Feed armonizado, calculadora de demanda hídrica, activación de sirena y despacho de ficha ICS-209.
+
+### 3. Doble Ruteo de Alto Contraste (Acceso Terrestre + Extracción de Agua)
+* **RUTA A (Oro/Ámbar Neón `#FFD700`):** Vía de acceso terrestre desde cuarteles o vías principales hasta el foco con cálculo de ETA en minutos y estado de transitabilidad.
+* **RUTA B (Cian Fluorescente `#00E5FF` animado):** Vector directo hacia la fuente hídrica más cercana (ríos Rocha, Taquiña, Chocaya, lagunas Alalay/Angostura o hidrantes urbanos) indicando caudal activo y litros disponibles.
+
+### 4. Estabilidad Cartográfica Absoluta Anti-Salto
+Manejo riguroso de eventos con `lastTarget.current`, `stopPropagation()` y `autoPan: false` que impide que la cámara del mapa se reubique o salte involuntariamente al interactuar con marcadores en niveles de zoom profundo (`zoom >= 13`).
+
+### 5. Motor de Clustering WebGL Acelerado por GPU (`src/lib/webgl-clustering.ts`)
 * **60 FPS Constantes:** Capaz de renderizar fluidamente más de **63.500+ anomalías térmicas simultáneas** mediante shaders WebGL nativos y fallback a Canvas 2D.
-* **Clustering Dinámico por Zoom:** A escala nacional (`zoom <= 11`) agrupa los focos en clústeres térmicos con agregación radiométrica (FRP total, severidad y conteo). A escala municipal (`zoom >= 12`), desagrega individualmente cada foco a 375m de resolución.
-
-### 2. Inspector Táctico y Ficha ICS-209 para Bomberos
-* **Despacho Inmediato por WhatsApp:** Con un solo clic, genera y despacha la ficha oficial ICS-209 preformateada hacia brigadistas en terreno, Bomberos 119, SAR Bolivia y la UGR del GAMC.
-* **Ruta de Acceso e Hidrante:** Identificación geodésica del hidrante o punto de agua más cercano y estado de habilitación de caminos para autobombas.
-* **Demanda Hídrica Estimada:** Cálculo cuantitativo de litros de agua requeridos y número de cisternas necesarias según el FRP del foco.
-
-### 3. Exportación Geoespacial Abierta para Municipios
-* **Descarga GeoJSON SIG:** Exporta las capas térmicas vectoriales para su importación inmediata en QGIS o ArcGIS por parte de las direcciones de medio ambiente y planificación municipal.
-* **Exportación CSV:** Formato tabular para auditoría institucional post-evento.
-* **Sellado Criptográfico SHA-256:** Garantiza la inmutabilidad y trazabilidad legal de cada informe generado.
+* **Clustering Dinámico por Zoom:** A escala departamental agrupa en clústeres térmicos con agregación radiométrica; a escala municipal desagrega a resolución nominal de 375m.
 
 ---
 
@@ -54,16 +72,17 @@ El reto oficial de la NASA exige armonizar las lecturas radiométricas entre dos
 
 | Capa | Tecnologías |
 | :--- | :--- |
+| **Despliegue & Servidor** | [Vercel](https://vercel.com) con preset Nitro Serverless (`nodejs24.x` Fluid Compute) |
 | **Arquitectura Web** | [TanStack Start](https://tanstack.com/start) (React 19, TypeScript 5.8, SSR Vite) |
-| **Estilos & Diseño Adaptativo** | Tailwind CSS v4, Radix UI Primitives, Lucide Icons |
+| **Estilos & Layout** | Tailwind CSS v4, Radix UI Primitives, Lucide Icons |
 | **Cartografía y GPU** | Leaflet, Leaflet.VectorGrid, WebGL Shaders, Turf.js, Esri World Imagery |
-| **Ingesta de Satélites** | NASA FIRMS (MODIS/VIIRS), NASA POWER, NASA GIBS, NASA EONET |
+| **Ingesta Satelital** | NASA FIRMS (MODIS/VIIRS), NASA POWER, NASA GIBS, NASA EONET |
 | **Predicción Meteorológica** | Microsoft Weather API + Telemetría Agro-meteorológica NASA POWER |
-| **Testing y Calidad** | Vitest (48/48 tests unitarios pasando al 100%) y TypeScript (`tsc --noEmit` con 0 errores) |
+| **Testing y Calidad** | Vitest (**65/65 tests unitarios al 100%**) y TypeScript (`tsc --noEmit` con 0 errores) |
 
 ---
 
-## 🚀 Instalación y Puesta en Marcha
+## 🚀 Instalación y Puesta en Marcha Local
 
 ```bash
 # 1. Clonar el repositorio
@@ -73,8 +92,7 @@ cd centinela/centinelas
 # 2. Instalar dependencias del proyecto
 npm install
 
-# 3. Configurar variables de entorno
-# Configura tu clave de NASA FIRMS en .env (se provee .env.example)
+# 3. Configurar variables de entorno (.env)
 cp .env.example .env
 
 # 4. Iniciar servidor de desarrollo en local
@@ -100,22 +118,24 @@ centinelas/
 │   ├── data/                   # Polígonos vectoriales ADM1 de Bolivia
 │   ├── hooks/                  # useNasa, use-mobile, etc.
 │   ├── lib/
-│   │   ├── centinela-data.ts   # Nodos de los 11 municipios del Tunari, botánica y cisternas
+│   │   ├── centinela-data.ts   # Polígonos de 11 municipios, botánica y recursos hídricos
 │   │   ├── fire-indices.ts     # Física de ignición, regla 30-30-30, índice Ångström
-│   │   ├── fire-operations.ts  # Rutas de hidrantes, proyección de frentes de fuego
+│   │   ├── fire-operations.ts  # Doble ruteo de hidrantes y proyección de frentes
 │   │   ├── harmonization.ts    # Algoritmo de fusión MODIS + VIIRS
+│   │   ├── i18n.tsx            # Motor reactivo trilingüe (ES, QU, EN)
 │   │   ├── nasa-data.ts        # Parsers FIRMS, POWER, EONET, GIBS
 │   │   ├── nasa-queries.ts     # Consultas cacheadas TanStack Query
 │   │   └── webgl-clustering.ts # Spatial Grid KD-Tree en GPU WebGL
 │   ├── routes/
-│   │   ├── __root.tsx          # Shell principal y Toaster
-│   │   ├── dashboard.tsx       # Centro de Mando Táctico Widescreen (PC/Desktop)
+│   │   ├── __root.tsx          # Shell principal, i18n Provider y Toaster
+│   │   ├── dashboard.tsx       # Centro de Mando Táctico Widescreen 1920px (Desktop)
 │   │   ├── movil.tsx           # Vista móvil de respuesta rápida en terreno
 │   │   ├── alerta.$id.tsx      # Ficha técnica individual de foco térmico
 │   │   ├── reportes.tsx        # Auditoría analítica y exportación GeoJSON/CSV
 │   │   ├── proyecto.tsx        # Documentación de arquitectura técnica municipal GAMC
 │   │   └── publico.tsx         # Portal ciudadano de libre acceso
-│   └── test/                   # 7 suites de pruebas unitarias (Vitest)
+│   └── test/                   # 8 suites de pruebas unitarias (Vitest, 65 tests)
+├── vite.config.ts              # Configuración Vite con preset Nitro para Vercel
 ├── vitest.config.ts            # Configuración de pruebas unitarias
 └── tsconfig.json               # Configuración estricta de TypeScript
 ```
