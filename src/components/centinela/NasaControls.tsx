@@ -3,14 +3,15 @@ import { MapPin, RefreshCw, Satellite, Flame, Radio } from "lucide-react";
 import { TUNARI_REGIONS, MUNICIPALITIES, departmentAt } from "@/lib/nasa-data";
 import { formatDateTime } from "@/lib/format";
 import type { useNasa } from "@/hooks/use-nasa";
+import type { Incident } from "@/lib/centinela-data";
 import { TacButton } from "./Brand";
 
 export function NasaControls({ nasa, compact = false }: { nasa: ReturnType<typeof useNasa>; compact?: boolean }) {
   const [lat, setLat] = useState("");
   const [lng, setLng] = useState("");
   const [error, setError] = useState("");
-  const hasFrp = nasa.incidents.some((i) => i.frp !== null);
-  const frp = nasa.incidents.reduce((s, i) => s + (i.frp ?? 0), 0);
+  const hasFrp = nasa.incidents.some((i: Incident) => i.frp !== null);
+  const frp = nasa.incidents.reduce((s: number, i: Incident) => s + (i.frp ?? 0), 0);
 
   return (
     <div className={`space-y-2 ${compact ? "px-4 py-2" : ""}`}>

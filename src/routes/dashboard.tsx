@@ -55,6 +55,7 @@ import { useI18n } from "@/lib/i18n";
 import { FieldChannel } from "@/components/centinela/FieldChannel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { snapshotQuery, powerQuery, gibsQuery } from "@/lib/nasa-queries";
+import { isPointInCochabamba } from "@/lib/nasa-data";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -153,6 +154,7 @@ function Dashboard() {
 
   const filteredIncidents = useMemo(() => {
     return incidents.filter((i) => {
+      if (!isPointInCochabamba(i.lat, i.lng)) return false;
       if (activeFilter === "harmonized") return i.source === "MODIS+VIIRS armonizado";
       if (activeFilter === "critical") return (i.frp ?? 0) >= 30;
       if (activeFilter === "near") {

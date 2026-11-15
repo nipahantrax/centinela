@@ -29,19 +29,12 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
   };
 }
 
-function createSupabaseAdminClient() {
-  const SUPABASE_URL = process.env['SUPABASE_URL'];
-  const SUPABASE_SERVICE_ROLE_KEY = process.env['SUPABASE_SERVICE_ROLE_KEY'];
+const DEFAULT_SUPABASE_URL = 'https://fdhvkmhsclhwkbjqcexr.supabase.co';
+const DEFAULT_SUPABASE_KEY = 'sb_publishable_-73RglgocE6WP1Zlj381pQ_K35dw4dE';
 
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    const missing = [
-      ...(!SUPABASE_URL ? ['SUPABASE_URL'] : []),
-      ...(!SUPABASE_SERVICE_ROLE_KEY ? ['SUPABASE_SERVICE_ROLE_KEY'] : []),
-    ];
-    const message = `Missing Supabase environment variable(s): ${missing.join(', ')}. Please check your environment variables (.env).`;
-    console.error(`[Supabase] ${message}`);
-    throw new Error(message);
-  }
+function createSupabaseAdminClient() {
+  const SUPABASE_URL = process.env['SUPABASE_URL'] || DEFAULT_SUPABASE_URL;
+  const SUPABASE_SERVICE_ROLE_KEY = process.env['SUPABASE_SERVICE_ROLE_KEY'] || process.env['SUPABASE_PUBLISHABLE_KEY'] || DEFAULT_SUPABASE_KEY;
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     global: {

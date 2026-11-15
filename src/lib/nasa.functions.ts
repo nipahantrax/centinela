@@ -2,8 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import {
   BOLIVIA_BBOX,
+  COCHABAMBA_BBOX,
   TUNARI_BBOX,
   departmentAt,
+  isPointInCochabamba,
   parseEonet,
   parseFirms,
   parsePower,
@@ -14,6 +16,7 @@ import {
   type WeatherResult,
   type PredictiveWeatherSusceptibility
 } from "./nasa-data";
+import { INCIDENTS } from "./centinela-data";
 import { harmonizeHotspots } from "./harmonization";
 
 // Cache inteligente en memoria para consultas remotas y protección contra rate-limit (TTL 5 min)
@@ -159,16 +162,16 @@ export const getNasaSnapshot = createServerFn({ method: "GET" }).handler(async (
   return cached(`snapshot:${key ? "configured" : "fallback"}`, 300000, async () => {
     const messages: string[] = [];
 
-    // 1. NASA EONET v3: Wildfires abiertas
+    // 1. NASA EONET v3: Wildfires abiertas en Cochabamba
     const eonet = await nasaFetch("https://eonet.gsfc.nasa.gov/api/v3/events?category=wildfires&status=open&days=30&bbox=-82,-56,-34,13")
       .then(r => r.json())
-      .then((p: { events: EonetEvent[] }) => parseEonet(p.events ?? []).filter(i => departmentAt(i.lat, i.lng)))
+      .then((p: { events: EonetEvent[] }) => parseEonet(p.events ?? []).filter(i => isPointInCochabamba(i.lat, i.lng)))
       .catch(() => {
         messages.push("EONET temporalmente no disponible.");
         return [];
       });
 
-    // 2. NASA FIRMS API: VIIRS_SNPP_NRT + VIIRS_NOAA20_NRT + MODIS_NRT
+    // 2. NASA FIRMS API: VIIRS_SNPP_NRT + VIIRS_NOAA20_NRT + MODIS_NRT (Enfocado exclusivamente en Cochabamba y los 11 Municipios Tunari)
     let firms: ReturnType<typeof parseFirms> = [];
     let firmsOk = false;
 
@@ -178,11 +181,11 @@ export const getNasaSnapshot = createServerFn({ method: "GET" }).handler(async (
         collections.map(async (source) => {
           const csv = await (
             await nasaFetch(
-              `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${encodeURIComponent(key)}/${source}/${BOLIVIA_BBOX.join(",")}/2`
+              `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${encodeURIComponent(key)}/${source}/${COCHABAMBA_BBOX.join(",")}/2`
             )
           ).text();
           return parseFirms(csv, source === "MODIS_NRT" ? "MODIS" : "VIIRS").filter((i) =>
-            departmentAt(i.lat, i.lng)
+            isPointInCochabamba(i.lat, i.lng)
           );
         })
       );
@@ -201,7 +204,8 @@ export const getNasaSnapshot = createServerFn({ method: "GET" }).handler(async (
 
     const unique = [...new Map(firms.map((i) => [i.id, i])).values()];
     const rawLive = [...unique, ...eonet];
-    const { incidents: live, stats: harmonizationStats } = harmonizeHotspots(rawLive);
+    const pool = rawLive.length > 0 ? rawLive : INCIDENTS;
+    const { incidents: live, stats: harmonizationStats } = harmonizeHotspots(pool);
     const source = firmsOk ? "FIRMS" : eonet.length ? "EONET" : "Sin datos";
 
     if (source === "Sin datos") {

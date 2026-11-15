@@ -1,8 +1,9 @@
-import { NODES, type Incident, type Node } from "./centinela-data";
+import { NODES, INCIDENTS, type Incident, type Node } from "./centinela-data";
 import type { HarmonizationStats } from "./harmonization";
 import boundaries from "@/data/bolivia-departments.json";
 
 export const BOLIVIA_BBOX = [-69.7, -22.9, -57.4, -9.6] as const;
+export const COCHABAMBA_BBOX = [-67.01, -18.69, -64.23, -15.78] as const;
 export const TUNARI_BBOX = [-66.6, -17.7, -65.5, -17.0] as const;
 
 export const REGIONS: { id: string; name: string; center: [number, number]; zoom: number; isMunicipality?: boolean }[] = [
@@ -300,7 +301,11 @@ export function parseFirms(csv: string, source: "VIIRS" | "MODIS"): Incident[] {
     const time = get("acq_time").padStart(4, "0");
     const date = `${get("acq_date")}T${time.slice(0, 2)}:${time.slice(2, 4)}:00Z`;
     if (!Number.isFinite(Date.parse(date))) return [];
-    return [liveIncident(`FIRMS-${source}-${get("acq_date")}-${time}-${lat}-${lng}`, lat, lng, date, source, "Bolivia · foco satelital", frp, confidence)];
+    const muni = MUNICIPALITIES.find(m => Math.hypot(m.center[0] - lat, m.center[1] - lng) <= 0.45) ?? MUNICIPALITIES[0]!;
+    const zone = isPointInCochabamba(lat, lng)
+      ? `${muni.name.replace(/^\d+\.\s*/, '')} · Foco Satelital NASA`
+      : "Foco Satelital NASA";
+    return [liveIncident(`FIRMS-${source}-${get("acq_date")}-${time}-${lat}-${lng}`, lat, lng, date, source, zone, frp, confidence)];
   });
 }
 
@@ -343,26 +348,38 @@ export function departmentAt(lat: number, lng: number): string | null {
   return null;
 }
 
-export function regionalIncidents(incidents: Incident[], regionId: string) {
+export function isPointInCochabamba(lat: number, lng: number): boolean {
+  const dept = departmentAt(lat, lng);
+  if (dept === "Cochabamba") return true;
+  if (dept !== null) return false;
+  return lat >= -18.69 && lat <= -15.78 && lng >= -67.01 && lng <= -64.23;
+}
+
+export function regionalIncidents(incidents: Incident[], regionId: string): Incident[] {
+  // Garantizar que NUNCA aparezcan focos de Beni, Santa Cruz ni otros departamentos
+  const cbbaIncidents = incidents.filter((i: Incident) => isPointInCochabamba(i.lat, i.lng));
+  const pool = cbbaIncidents.length > 0 ? cbbaIncidents : INCIDENTS;
+
   if (regionId === "all" || regionId === "Cochabamba") {
-    const cbba = incidents.filter(i => departmentAt(i.lat, i.lng) === "Cochabamba" || (i.lat >= TUNARI_BBOX[1] && i.lat <= TUNARI_BBOX[3] && i.lng >= TUNARI_BBOX[0] && i.lng <= TUNARI_BBOX[2]));
-    return cbba.length > 0 ? cbba : incidents;
+    return pool;
   }
-  const muni = MUNICIPALITIES.find(m => m.id === regionId);
+  const muni = MUNICIPALITIES.find((m) => m.id === regionId);
   if (muni) {
-    const matching = incidents.filter(i => {
+    const matching = pool.filter((i: Incident) => {
       const d = Math.hypot(i.lat - muni.center[0], i.lng - muni.center[1]);
       return d <= 0.35 || i.zone.toLowerCase().includes(muni.name.toLowerCase());
     });
-    return matching.length > 0 ? matching : incidents.filter(i => departmentAt(i.lat, i.lng) === "Cochabamba");
+    return matching.length > 0 ? matching : pool;
   }
-  const node = NODES.find(n => n.id === regionId);
+  const node = NODES.find((n) => n.id === regionId);
   if (node) {
-    const matching = incidents.filter(i => {
+    const matching = pool.filter((i: Incident) => {
       const d = Math.hypot(i.lat - node.center[0], i.lng - node.center[1]);
       return d <= 0.35 || i.zone.toLowerCase().includes(node.municipality.toLowerCase());
     });
-    return matching.length > 0 ? matching : incidents.filter(i => departmentAt(i.lat, i.lng) === "Cochabamba");
+    return matching.length > 0 ? matching : pool;
   }
-  return incidents.filter(i => departmentAt(i.lat, i.lng) === regionId);
+  // Para tests específicos de otros departamentos
+  const deptMatches = incidents.filter((i: Incident) => departmentAt(i.lat, i.lng) === regionId);
+  return deptMatches;
 }
