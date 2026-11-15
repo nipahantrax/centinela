@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { attentionDetections, emergencyMessage, isFreshDetection, nearestReference, projectFire, requiresAttention } from '@/lib/fire-operations';
+import {
+  attentionDetections,
+  calculatePropagationForecast,
+  emergencyMessage,
+  isFreshDetection,
+  nearestReference,
+  projectFire,
+  requiresAttention,
+} from '@/lib/fire-operations';
 import { liveIncident } from '@/lib/nasa-data';
 describe('operational safety', () => {
   const now = Date.parse('2026-10-23T00:00:00Z');
@@ -19,4 +27,15 @@ describe('operational safety', () => {
   });
   it('keeps a calm-wind envelope at zero', () => { expect(projectFire(-17,-66,{temp:32,rh:15,wind:0,windDir:'NE',windDeg:45},6).km).toBe(0); });
   it('puts precise GPS and uncertainty in the SOS', () => { expect(emergencyMessage(-17.123456,-66.123456,12,'Humo')).toContain('-17.123456, -66.123456 (±12 m)'); });
+  it('computes propagation forecast downwind with rate of spread and 3 horizons', () => {
+    const forecast = calculatePropagationForecast(-17.3, -66.2, 45, 25);
+    expect(forecast.bearingTo).toBe(225); // Wind from NE (45°) blows towards SW (225°)
+    expect(forecast.windCardinalTo).toBe('SO');
+    expect(forecast.rateOfSpreadKmH).toBeGreaterThan(0.5);
+    expect(forecast.cone30Min.length).toBeGreaterThan(3);
+    expect(forecast.cone1Hour.length).toBeGreaterThan(3);
+    expect(forecast.cone2Hours.length).toBeGreaterThan(3);
+    expect(forecast.centralVector).toHaveLength(2);
+    expect(forecast.impactAdvisory).toContain('SO');
+  });
 });

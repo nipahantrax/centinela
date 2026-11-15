@@ -16,7 +16,14 @@ import {
   VEGETATION_ZONES,
   spreadCone,
 } from "@/lib/centinela-data";
-import { nearestReference, projectFire, REFERENCE_POINTS, type Horizon } from "@/lib/fire-operations";
+import {
+  nearestReference,
+  projectFire,
+  REFERENCE_POINTS,
+  calculatePropagationForecast,
+  type PropagationForecast,
+  type Horizon,
+} from "@/lib/fire-operations";
 import { classifyFrp } from "@/lib/fire-indices";
 import { TacButton } from "./Brand";
 import { escapeMapText, buildHotspotPopupHtml, buildCisternPopupHtml, buildHumanRiskPopupHtml } from "@/lib/map-content";
@@ -194,6 +201,46 @@ export function TacticalMap({
     return incidents.filter((i) => i.source === "MODIS+VIIRS armonizado" || (i.confidence ?? 0) >= 90).length;
   }, [incidents]);
 
+  const selectedIncident = useMemo(() => {
+    return incidents.find((i) => i.id === selectedId);
+  }, [incidents, selectedId]);
+
+  const selectedForecast = useMemo(() => {
+    if (!selectedIncident || selectedIncident.status === "Controlado") return null;
+    return calculatePropagationForecast(selectedIncident.lat, selectedIncident.lng, wind.deg, wind.kmh);
+  }, [selectedIncident, wind]);
+
+  const nearestWaterSelected = useMemo(() => {
+    if (!selectedIncident) return null;
+    return findNearestWaterResource(selectedIncident.lat, selectedIncident.lng);
+  }, [selectedIncident]);
+
+  const whatsappUrl = useMemo(() => {
+    if (!selectedIncident) return "";
+    const waterText = nearestWaterSelected
+      ? `💧 Fuente Agua: ${nearestWaterSelected.resource.name} (${nearestWaterSelected.resource.categoryLabel}) a ${nearestWaterSelected.distKm} km · ${nearestWaterSelected.resource.flowStatus}`
+      : "";
+    const forecastText = selectedForecast
+      ? `💨 Viento y Propagación: Sopla a ${Math.round(wind.kmh)} km/h hacia ${selectedForecast.windCardinalTo} (${Math.round(selectedForecast.bearingTo)}°) · ROS: ~${selectedForecast.rateOfSpreadKmH} km/h` +
+        (selectedForecast.threatenedCommunities.length > 0
+          ? `\n⚠️ Comunidades Amenazadas: ${selectedForecast.threatenedCommunities.map((c) => `${c.name} (${c.distKm}km/ETA:${c.etaMin}min)`).join(", ")}`
+          : "")
+      : "";
+
+    const text =
+      `🚨 ALERTA TÁCTICA CENTINELA — INCENDIO FORESTAL COCHABAMBA\n` +
+      `📍 Sector: ${selectedIncident.zone} (${selectedIncident.lat.toFixed(5)}, ${selectedIncident.lng.toFixed(5)})\n` +
+      `🔥 Potencia Radiativa: ${selectedIncident.frp ?? "N/D"} MW (${classifyFrp(selectedIncident.frp).category})\n` +
+      `📡 Detección: ${selectedIncident.source} · Confianza: ${selectedIncident.confidence ?? 95}%\n` +
+      `${forecastText}\n` +
+      `${waterText}\n` +
+      `🚒 Acceso Terrestre: ETA aprox: ${selectedIncident.route?.etaMin ?? 25} min\n` +
+      `🗺️ GPS: https://www.google.com/maps?q=${selectedIncident.lat.toFixed(5)},${selectedIncident.lng.toFixed(5)}\n` +
+      `Solicitud de despacho UGR / Bomberos / SERNAP.`;
+
+    return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+  }, [selectedIncident, nearestWaterSelected, selectedForecast, wind]);
+
   useEffect(() => {
     let cancelled = false;
     import("leaflet").then(async (mod) => {
@@ -204,7 +251,15 @@ export function TacticalMap({
       await import("leaflet.vectorgrid");
       if (cancelled || !el.current) return;
 
-      map.current = lib.map(el.current, { zoomControl: false, attributionControl: true }).setView(center, zoom);
+      map.current = lib
+        .map(el.current, {
+          zoomControl: false,
+          attributionControl: true,
+          zoomSnap: 0.5,
+          zoomDelta: 0.5,
+          wheelPxPerZoomLevel: 120,
+        })
+        .setView(center, zoom);
       basemap.current = lib
         .tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
           attribution: "Tiles © Esri · NASA · CENTINELA",
@@ -213,7 +268,7 @@ export function TacticalMap({
         .addTo(map.current);
 
       basemap.current.on("tileerror", () => setMapError("Una imagen Esri no cargó. Prueba la base oscura."));
-      lib.control.zoom({ position: "bottomright" }).addTo(map.current);
+      lib.control.scale({ imperial: false, metric: true, position: "bottomright" }).addTo(map.current);
       group.current = lib.layerGroup().addTo(map.current);
       satellites.current = lib.layerGroup().addTo(map.current);
       me.current = lib.layerGroup().addTo(map.current);
@@ -859,22 +914,99 @@ export function TacticalMap({
         .addTo(g);
     }
 
-    // 2. Cono Direccional de Propagación de Viento en Focos Activos (Nivel 3)
+    // 2. Modelo Físico Preciso de Propagación a Sotavento (30 min, 1 hora, 2 horas) + Vector de Viento
     if (i.status !== "Controlado") {
-      const conePts = spreadCone(i.lat, i.lng, wind.deg, wind.kmh);
+      const forecast = calculatePropagationForecast(i.lat, i.lng, wind.deg, wind.kmh);
+      const isSel = i.id === selectedId;
+
+      // Horizonte 2 Horas: Zona de Evacuación y Alerta Preventiva
       lib
-        .polygon(conePts, {
-          color: "#ef4444",
-          weight: 1.5,
-          dashArray: "4 4",
-          fillColor: "#ef4444",
-          fillOpacity: i.id === selectedId ? 0.28 : 0.12,
+        .polygon(forecast.cone2Hours, {
+          color: "#eab308",
+          weight: isSel ? 2 : 1,
+          dashArray: "5 5",
+          fillColor: "#eab308",
+          fillOpacity: isSel ? 0.12 : 0.05,
         })
         .bindTooltip(
-          `🔥 Cono de Propagación a Sotavento: Avance proyectado a ${Math.round(wind.kmh)} km/h en próximos 30-60 min (rumbo ${Math.round((wind.deg + 180) % 360)}°)`,
+          `⏱️ Horizonte 2h (+${(forecast.rateOfSpreadKmH * 2).toFixed(1)} km) hacia ${forecast.windCardinalTo} (${Math.round(forecast.bearingTo)}°)`,
           { direction: "top" }
         )
         .addTo(g);
+
+      // Horizonte 1 Hora: Línea de Defensa Táctica y Brechas Cortafuegos
+      lib
+        .polygon(forecast.cone1Hour, {
+          color: "#f97316",
+          weight: isSel ? 2.5 : 1.2,
+          dashArray: "4 4",
+          fillColor: "#f97316",
+          fillOpacity: isSel ? 0.22 : 0.08,
+        })
+        .bindTooltip(
+          `⏱️ Horizonte 1h (+${forecast.rateOfSpreadKmH.toFixed(1)} km) | Alerta Táctica SERNAP / Bomberos`,
+          { direction: "top" }
+        )
+        .addTo(g);
+
+      // Horizonte 30 Minutos: Frente de Fuego Activo / Ataque Rápido
+      lib
+        .polygon(forecast.cone30Min, {
+          color: "#ef4444",
+          weight: isSel ? 3 : 1.5,
+          fillColor: "#ef4444",
+          fillOpacity: isSel ? 0.35 : 0.15,
+        })
+        .bindTooltip(
+          `🔥 Frente 30min (+${(forecast.rateOfSpreadKmH * 0.5).toFixed(1)} km) | ROS: ${forecast.rateOfSpreadKmH} km/h por viento de ${Math.round(wind.kmh)} km/h`,
+          { direction: "top" }
+        )
+        .addTo(g);
+
+      // Eje Vectorial Central de Viento (Halo oscuro + Trazo Neón Ámbar)
+      lib.polyline(forecast.centralVector, {
+        color: "#000000",
+        weight: isSel ? 6 : 4,
+        opacity: 0.85,
+      }).addTo(g);
+
+      lib.polyline(forecast.centralVector, {
+        color: "#fbbf24",
+        weight: isSel ? 3 : 2,
+        opacity: 1,
+      }).bindTooltip(
+        `💨 Eje de Viento: Hacia ${forecast.windCardinalTo} (${Math.round(forecast.bearingTo)}°) a ${Math.round(wind.kmh)} km/h`,
+        { direction: "center" }
+      ).addTo(g);
+
+      // Punta de flecha direccional en el extremo
+      const arrowIcon = lib.divIcon({
+        className: "",
+        html: `<div style="background:#fbbf24;color:#000;font-weight:900;border:1.5px solid #000;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:10px;box-shadow:0 0 8px #fbbf24;transform:rotate(${forecast.bearingTo - 90}deg)">➔</div>`,
+        iconSize: [18, 18],
+        iconAnchor: [9, 9],
+      });
+      lib.marker(forecast.endPoint2H, { icon: arrowIcon, interactive: false }).addTo(g);
+
+      // Comunidades Amenazadas en Trayectoria Directa
+      if (isSel && forecast.threatenedCommunities.length > 0) {
+        forecast.threatenedCommunities.forEach((comm) => {
+          lib
+            .circleMarker([comm.lat, comm.lng], {
+              radius: 6,
+              color: "#f43f5e",
+              fillColor: "#f43f5e",
+              fillOpacity: 0.9,
+              weight: 2,
+            })
+            .bindTooltip(`⚠️ AMENAZA EN TRAYECTORIA: ${comm.name} (${comm.distKm} km · ETA: ~${comm.etaMin} min)`, {
+              permanent: true,
+              direction: "top",
+              className: "bg-red-950 text-red-200 border border-red-500 font-bold px-2 py-0.5 text-[10px] rounded shadow-lg",
+            })
+            .addTo(g);
+        });
+      }
     }
 
     // 3. MÓDULO 1: DOBLE RUTEO DE ALTO CONTRASTE (RUTA A ACCESO + RUTA B AGUA)
@@ -1027,12 +1159,6 @@ export function TacticalMap({
         onSelectRef.current?.(i.id);
       })
       .addTo(g);
-
-    if (i.id === selectedId && !routeInfo) {
-      setTimeout(() => {
-        if (map.current?.hasLayer(marker)) marker.openPopup();
-      }, 0);
-    }
   }
 
   return (
@@ -1186,6 +1312,273 @@ export function TacticalMap({
         </button>
       </div>
 
+      {/* DOCK TÁCTICO FLOTANTE DE ZOOM Y NAVEGACIÓN ERGONÓMICA */}
+      <div className="glass absolute right-2.5 top-14 z-[400] flex flex-col gap-1 rounded-xl p-1 shadow-2xl backdrop-blur-md border border-slate-700/60">
+        <button
+          type="button"
+          onClick={() => map.current?.zoomIn(0.5)}
+          className="h-8 w-8 rounded-lg bg-slate-900/90 text-primary hover:bg-primary hover:text-primary-foreground font-bold text-base flex items-center justify-center transition-all shadow border border-primary/30"
+          title="Acercar (Zoom +0.5)"
+          aria-label="Acercar mapa"
+        >
+          ➕
+        </button>
+        <button
+          type="button"
+          onClick={() => map.current?.zoomOut(0.5)}
+          className="h-8 w-8 rounded-lg bg-slate-900/90 text-primary hover:bg-primary hover:text-primary-foreground font-bold text-base flex items-center justify-center transition-all shadow border border-primary/30"
+          title="Alejar (Zoom -0.5)"
+          aria-label="Alejar mapa"
+        >
+          ➖
+        </button>
+        <div className="h-px w-full bg-slate-700/60 my-0.5" />
+        <button
+          type="button"
+          onClick={() => {
+            if (selectedIncident) {
+              map.current?.flyTo([selectedIncident.lat, selectedIncident.lng], 14, { duration: 0.8 });
+            } else if (incidents.length > 0) {
+              const topFire = [...incidents].sort((a, b) => (b.frp ?? 0) - (a.frp ?? 0))[0]!;
+              onSelectRef.current?.(topFire.id);
+              map.current?.flyTo([topFire.lat, topFire.lng], 14, { duration: 0.8 });
+            }
+          }}
+          className="h-8 w-8 rounded-lg bg-slate-900/90 text-amber-400 hover:bg-amber-500 hover:text-slate-950 font-bold text-sm flex items-center justify-center transition-all shadow border border-amber-500/40"
+          title="Centrar en Foco Activo Crítico"
+          aria-label="Centrar foco activo"
+        >
+          🎯
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            map.current?.flyTo([-17.3935, -66.157], 10.5, { duration: 0.9 });
+          }}
+          className="h-8 w-8 rounded-lg bg-slate-900/90 text-emerald-400 hover:bg-emerald-500 hover:text-slate-950 font-bold text-sm flex items-center justify-center transition-all shadow border border-emerald-500/40"
+          title="Panorámica Tunari y Valle Central de Cochabamba"
+          aria-label="Panorámica Valle Tunari"
+        >
+          ⛰️
+        </button>
+      </div>
+
+      {/* HUD DE VIENTO Y DIRECCIÓN DE PROPAGACIÓN EN TIEMPO REAL */}
+      <div className="glass absolute top-2 left-32 sm:left-48 z-[400] hidden lg:flex items-center gap-2 rounded-lg px-2.5 py-1 text-[11px] font-mono shadow-xl border border-sky-500/30 backdrop-blur-md">
+        <div
+          className="w-5 h-5 rounded-full bg-sky-500/20 border border-sky-400 flex items-center justify-center text-sky-300 font-bold text-xs transition-transform"
+          style={{ transform: `rotate(${(wind.deg + 180) % 360}deg)` }}
+          title={`Viento soplando hacia ${(wind.deg + 180) % 360}°`}
+        >
+          ↑
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-muted-foreground font-sans text-[10px]">VIENTO:</span>
+          <span className="text-sky-300 font-bold">{Math.round(wind.kmh)} km/h</span>
+          <span className="text-muted-foreground text-[10px]">desde {wind.deg}°</span>
+          <span className="text-amber-300 font-bold">➔ hacia {(wind.deg + 180) % 360}°</span>
+        </div>
+      </div>
+
+      {/* INSPECTOR TÁCTICO FLOTANTE ANCLADO (REEMPLAZA VENTANAS PERDIDAS / POPUPS DESBORDADOS) */}
+      {selectedIncident && (
+        <div
+          role="dialog"
+          aria-label="Inspector de Emergencia Táctica"
+          className="glass absolute bottom-12 right-2 sm:right-4 z-[410] w-[calc(100vw-16px)] sm:w-[380px] max-h-[72vh] overflow-y-auto rounded-2xl p-4 shadow-2xl backdrop-blur-xl border border-primary/50 text-foreground animate-in fade-in slide-in-from-bottom-3 duration-200"
+        >
+          {/* Cabecera */}
+          <div className="flex items-start justify-between gap-2 pb-2 border-b border-border/50">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span
+                  className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider ${
+                    selectedIncident.status === "Controlado"
+                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                      : (selectedIncident.frp ?? 0) < 8
+                      ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"
+                      : "bg-red-500/20 text-red-400 border border-red-500/40 ring-1 ring-red-500/30"
+                  }`}
+                >
+                  {selectedIncident.status === "Controlado"
+                    ? "🟢 Foco Controlado"
+                    : (selectedIncident.frp ?? 0) < 8
+                    ? "🌡️ Anomalía Inicial (<300°C)"
+                    : "🔥 Foco Activo Confirmado"}
+                </span>
+                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                  {selectedIncident.source}
+                </span>
+              </div>
+              <h4 className="font-bold text-sm text-foreground mt-1 truncate">
+                {selectedIncident.zone}
+              </h4>
+              <div className="text-[11px] font-mono text-muted-foreground flex items-center gap-2">
+                <span>
+                  {selectedIncident.lat.toFixed(5)}, {selectedIncident.lng.toFixed(5)}
+                </span>
+                <span>·</span>
+                <span>Conf: {selectedIncident.confidence ?? 95}%</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onSelectRef.current?.("")}
+              className="h-7 w-7 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-muted-foreground hover:text-foreground flex items-center justify-center font-bold text-sm transition-colors shrink-0"
+              title="Cerrar inspector táctico"
+              aria-label="Cerrar inspector táctico"
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Telemetría Térmica e Hídrica */}
+          <div className="grid grid-cols-3 gap-2 my-2.5 font-mono text-center">
+            <div className="bg-slate-900/80 border border-slate-700/60 rounded-lg p-1.5">
+              <div className="text-[9px] text-muted-foreground uppercase">Potencia FRP</div>
+              <div className="text-sm font-black text-amber-400">
+                {selectedIncident.frp ?? "N/D"} <span className="text-[10px] font-normal">MW</span>
+              </div>
+              <div className="text-[9px] text-amber-300/80">{classifyFrp(selectedIncident.frp).category}</div>
+            </div>
+            <div className="bg-slate-900/80 border border-slate-700/60 rounded-lg p-1.5">
+              <div className="text-[9px] text-muted-foreground uppercase">Temp. Brillo</div>
+              <div className="text-sm font-black text-red-400">
+                ~{Math.round(300 + (selectedIncident.frp ?? 10) * 8.5)} <span className="text-[10px] font-normal">K</span>
+              </div>
+              <div className="text-[9px] text-red-300/80">Termosensor</div>
+            </div>
+            <div className="bg-slate-900/80 border border-slate-700/60 rounded-lg p-1.5">
+              <div className="text-[9px] text-muted-foreground uppercase">Agua Estimada</div>
+              <div className="text-sm font-black text-sky-400">
+                ~{classifyFrp(selectedIncident.frp).recommendedWaterLiters.toLocaleString()} <span className="text-[10px] font-normal">L</span>
+              </div>
+              <div className="text-[9px] text-sky-300/80">Extinción</div>
+            </div>
+          </div>
+
+          {/* Sección de Propagación a Sotavento */}
+          {selectedForecast && (
+            <div className="bg-slate-900/90 border border-amber-500/40 rounded-xl p-2.5 my-2.5 text-[11px] space-y-1.5">
+              <div className="flex items-center justify-between font-bold text-amber-400 text-xs">
+                <span className="flex items-center gap-1">
+                  💨 Vector de Propagación del Fuego
+                </span>
+                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">
+                  ROS: ~{selectedForecast.rateOfSpreadKmH} km/h
+                </span>
+              </div>
+              <div className="text-muted-foreground leading-snug">
+                Viento sopla a <b className="text-foreground">{Math.round(wind.kmh)} km/h</b> desde <b className="text-foreground">{wind.deg}°</b> hacia <b className="text-amber-300">{selectedForecast.windCardinalTo} ({Math.round(selectedForecast.bearingTo)}°)</b>.
+              </div>
+              {/* Horizontes */}
+              <div className="grid grid-cols-3 gap-1 pt-1 text-[10px] font-mono text-center">
+                <div className="bg-red-950/60 border border-red-500/50 rounded p-1">
+                  <div className="text-red-400 font-bold">30 min</div>
+                  <div className="text-foreground font-semibold">+{ (selectedForecast.rateOfSpreadKmH * 0.5).toFixed(1) } km</div>
+                  <div className="text-[8px] text-red-300">Ataque Rápido</div>
+                </div>
+                <div className="bg-orange-950/60 border border-orange-500/50 rounded p-1">
+                  <div className="text-orange-400 font-bold">1 hora</div>
+                  <div className="text-foreground font-semibold">+{ (selectedForecast.rateOfSpreadKmH * 1.0).toFixed(1) } km</div>
+                  <div className="text-[8px] text-orange-300">Línea Defensa</div>
+                </div>
+                <div className="bg-amber-950/60 border border-amber-500/50 rounded p-1">
+                  <div className="text-amber-400 font-bold">2 horas</div>
+                  <div className="text-foreground font-semibold">+{ (selectedForecast.rateOfSpreadKmH * 2.0).toFixed(1) } km</div>
+                  <div className="text-[8px] text-amber-300">Evacuación</div>
+                </div>
+              </div>
+
+              {/* Comunidades en trayectoria */}
+              {selectedForecast.threatenedCommunities.length > 0 ? (
+                <div className="mt-2 pt-1.5 border-t border-slate-700/60">
+                  <div className="text-[10px] font-bold text-red-400 flex items-center gap-1 mb-1">
+                    ⚠️ Comunidades en Trayectoria Directa:
+                  </div>
+                  <div className="space-y-1">
+                    {selectedForecast.threatenedCommunities.slice(0, 3).map((comm, idx) => (
+                      <div key={idx} className="flex items-center justify-between bg-red-950/40 border border-red-800/40 rounded px-2 py-1 text-[10px]">
+                        <span className="font-semibold text-foreground truncate">{comm.name}</span>
+                        <span className="font-mono text-red-300 shrink-0 ml-1">
+                          {comm.distKm} km · ETA: ~{comm.etaMin} min
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-[10px] text-emerald-400/90 flex items-center gap-1 pt-1">
+                  ✅ Sin asentamientos urbanos en el cono directo a 2 horas.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Recurso Hídrico más cercano */}
+          {nearestWaterSelected && (
+            <div className="bg-slate-900/80 border border-sky-500/30 rounded-xl p-2.5 my-2.5 text-[11px] flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <div className="text-[10px] font-bold text-sky-400 flex items-center gap-1">
+                  💧 Fuente Hídrica más Cercana:
+                </div>
+                <div className="font-semibold text-foreground text-xs truncate">
+                  {nearestWaterSelected.resource.name} ({nearestWaterSelected.resource.categoryLabel})
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  A {nearestWaterSelected.distKm} km · {nearestWaterSelected.resource.flowStatus}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  map.current?.flyTo([nearestWaterSelected.resource.lat, nearestWaterSelected.resource.lng], 14, { duration: 0.8 });
+                }}
+                className="px-2.5 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 text-[10px] font-bold border border-sky-500/40 shrink-0 transition-colors"
+                title="Ver fuente de agua en el mapa"
+              >
+                Ver Fuente ➔
+              </button>
+            </div>
+          )}
+
+          {/* Botones de Acción Táctica Inmediata */}
+          <div className="grid grid-cols-2 gap-2 mt-3 pt-2 border-t border-border/50">
+            <button
+              type="button"
+              onClick={() => planRoute("access", selectedIncident.lat, selectedIncident.lng)}
+              className="w-full flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-[11px] transition-all shadow-md active:scale-95 cursor-pointer"
+            >
+              🚒 Ruta Bomberos
+            </button>
+            <button
+              type="button"
+              onClick={() => planRoute("escape", selectedIncident.lat, selectedIncident.lng)}
+              className="w-full flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[11px] transition-all shadow-md active:scale-95 cursor-pointer"
+            >
+              🏃 Ruta Escape
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                map.current?.flyTo([selectedIncident.lat, selectedIncident.lng], 15, { duration: 0.8 });
+              }}
+              className="w-full flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-foreground font-bold text-[11px] border border-slate-700 transition-all active:scale-95 cursor-pointer"
+            >
+              🎯 Centrar Foco
+            </button>
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="w-full flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-extrabold text-[11px] border border-emerald-500/50 transition-all active:scale-95 text-center cursor-pointer"
+            >
+              📲 WhatsApp 119
+            </a>
+          </div>
+        </div>
+      )}
+
       {/* Modal / Toast de Ruta de Evacuación */}
       {routeInfo &&
         (() => {
@@ -1241,7 +1634,7 @@ export function TacticalMap({
       {/* Pie de Telemetría Táctica */}
       <div className="glass pointer-events-none absolute bottom-1.5 left-2 right-12 z-[400] rounded px-2 py-0.5 font-mono text-[9px] text-foreground flex items-center justify-between backdrop-blur-md">
         <span>Esri HD · Tunari SERNAP · 11 Cisternas Municipales 🚒</span>
-        <span className="text-primary font-bold">Zoom {Math.round(currentZoom)} · {currentZoom >= 12 ? "Modo Táctico 375m" : "Modo Clúster Macro"}</span>
+        <span className="text-primary font-bold">Zoom {Math.round(currentZoom * 10) / 10} · {currentZoom >= 12 ? "Modo Táctico 375m" : "Modo Clúster Macro"}</span>
       </div>
     </div>
   );
