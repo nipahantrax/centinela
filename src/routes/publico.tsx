@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { ArrowLeft, Phone } from "lucide-react";
 import { Brand } from "@/components/centinela/Brand";
+import { LanguageSelector } from "@/components/centinela/LanguageSelector";
 import { Panel, StatusBadge } from "@/components/centinela/Shell";
 import { RiskGauge } from "@/components/centinela/RiskGauge";
 import { ignitionRisk } from "@/lib/centinela-data";
@@ -15,10 +16,10 @@ export const Route = createFileRoute("/publico")({
     meta: [
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { title: "CENTINELA · Consulta Ciudadana" },
-      { name: "description", content: "Consulta vecinal del riesgo de incendios y focos activos reales NASA en Bolivia." },
-      { property: "og:title", content: "CENTINELA · Consulta Ciudadana" },
-      { property: "og:description", content: "Estado público de incendios forestales en Bolivia con datos NASA." },
+      { title: "CENTINELA · Consulta Ciudadana Tunari (Cochabamba)" },
+      { name: "description", content: "Consulta vecinal de riesgo de incendios y focos activos en los 11 municipios del Parque Tunari y Cochabamba." },
+      { property: "og:title", content: "CENTINELA · Consulta Ciudadana Tunari" },
+      { property: "og:description", content: "Estado público de incendios forestales en Cochabamba y Parque Tunari con telemetría NASA." },
     ],
   }),
   loader: async ({ context }) => { await Promise.all([context.queryClient.ensureQueryData(snapshotQuery), context.queryClient.ensureQueryData(powerQuery(-17.31, -66.2))]); },
@@ -32,11 +33,17 @@ function Publico() {
   const active = snapshot.incidents.filter((i) => i.status !== "Controlado");
   return (
     <div className="tac-grid min-h-screen">
-      <div className="mx-auto max-w-3xl space-y-4 px-4 py-6">
-        <div className="flex items-center justify-between"><Brand /><Link to="/" className="flex items-center gap-1 text-sm text-primary"><ArrowLeft className="h-4 w-4" />Volver</Link></div>
+      <div className="mx-auto max-w-3xl space-y-4 px-3 sm:px-4 py-6 pb-24 lg:pb-8">
+        <div className="flex items-center justify-between">
+          <Brand />
+          <div className="flex items-center gap-3">
+            <LanguageSelector compact />
+            <Link to="/" className="flex items-center gap-1 text-sm text-primary"><ArrowLeft className="h-4 w-4" />Volver</Link>
+          </div>
+        </div>
         <h1 className="text-2xl font-bold">Consulta ciudadana</h1>
         <p className="text-sm text-muted-foreground">Datos reales NASA (FIRMS / EONET / POWER). Las detecciones satelitales están pendientes de verificación en campo; ante una emergencia llama al 119.</p>
-        <Link to="/movil" className="flex min-h-12 items-center justify-center rounded-md border border-primary/50 bg-primary/10 text-primary">Abrir mapa de toda Bolivia →</Link>
+        <Link to="/movil" className="flex min-h-12 items-center justify-center rounded-md border border-primary/50 bg-primary/10 text-primary font-bold">Abrir mapa interactivo Tunari (11 Municipios) →</Link>
         <Panel title="Clima de referencia · Cochabamba">{w ? <RiskGauge value={ignitionRisk(w.temp, w.wind, w.rh)} /> : <p className="text-sm text-muted-foreground">Riesgo de ignición: sin dato NASA POWER disponible.</p>}
           <p className="mt-2 text-xs text-muted-foreground">POWER · promedio diario {power.date ?? 'sin fecha'} en Cochabamba. Estimación de CENTINELA, no riesgo nacional ni aviso oficial.</p>
           <p className="mt-3 text-sm text-muted-foreground">Evita quemas, fogatas y arrojar colillas. Si ves humo, llama al <b className="text-foreground">119</b>.</p></Panel>
@@ -48,7 +55,7 @@ function Publico() {
             </ul>
             {active.length > 20 && <p className="pt-2 text-xs text-muted-foreground">Mostrando 20 de {active.length} detecciones. El mapa táctico muestra todas.</p>}
           </> : <p className="text-sm text-muted-foreground">No hay detecciones disponibles en esta consulta. Esto no descarta incendios: reporta cualquier humo al 119.</p>}
-          {snapshot.messages.map(message => <p key={message} className="mt-2 text-xs text-warning">{message}</p>)}
+          {snapshot.messages.map((message, idx) => <p key={`${message}-${idx}`} className="mt-2 text-xs text-warning">{message}</p>)}
         </Panel>
         <Panel title="Contactos de emergencia">
           <ul className="grid gap-2 font-mono text-sm sm:grid-cols-2">

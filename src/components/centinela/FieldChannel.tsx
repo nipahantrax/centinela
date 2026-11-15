@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import { LogIn, MapPin, Phone, Send, Share2, Siren } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { lovable } from '@/integrations/lovable';
 import { departmentAt, REGIONS } from '@/lib/nasa-data';
 import { emergencyMessage } from '@/lib/fire-operations';
 import { NATIONAL_CONTACTS } from '@/lib/emergency-contacts';
@@ -43,10 +42,13 @@ export function FieldChannel({ regionId }: { regionId: string }) {
     return () => { void supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, department]);
-  async function login(provider: 'google' | 'lovable') {
+  async function login(provider: 'google') {
     setError('');
-    const result = await lovable.auth.signInWithOAuth(provider, { redirect_uri: window.location.origin + window.location.pathname });
-    if (result.error) setError('No se pudo iniciar sesión. Intenta nuevamente.');
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: window.location.origin + window.location.pathname },
+    });
+    if (error) setError('No se pudo iniciar sesión. Intenta nuevamente.');
   }
   function locate() {
     setBusy(true); setError(''); setGps(null); setConsent(false);
@@ -73,7 +75,7 @@ export function FieldChannel({ regionId }: { regionId: string }) {
   return <div className="space-y-3">
     <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-mono text-xs text-primary">CANAL DE CAMPO</h3><span className={`text-xs ${connected ? 'text-success' : 'text-warning'}`}>{connected ? '● Conectado' : userId ? 'Sin conexión en vivo' : 'Sesión requerida'}</span></div>
     <p className="text-xs text-muted-foreground">Tus reportes privados · sin despacho automático a emergencias.</p>
-    {!userId && <div className="grid gap-2"><TacButton onClick={() => void login('google')}><LogIn className="h-4 w-4" /> Ingresar con Google</TacButton><TacButton tone="ghost" onClick={() => void login('lovable')}>Ingresar con Lovable</TacButton></div>}
+    {!userId && <div className="grid gap-2"><TacButton onClick={() => void login('google')}><LogIn className="h-4 w-4" /> Ingresar con Google</TacButton></div>}
     <label className="block text-xs text-muted-foreground">Departamento<select aria-label="Departamento del canal" value={department} onChange={e=>setDepartment(e.target.value)} className="mt-1 h-9 w-full rounded border border-input bg-background px-2">{REGIONS.filter(r=>r.id!=='all').map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select></label>
     <div className="max-h-48 space-y-2 overflow-y-auto" aria-live="polite">
       {messages.error && <p role="alert" className="text-xs text-warning">{messages.error.message}</p>}

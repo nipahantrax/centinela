@@ -1,22 +1,24 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useState } from "react";
-import { AlertTriangle, ArrowLeft, Camera, FileText, Flame, Mountain, Route as RouteIcon, Siren, Wind, ShieldCheck, Copy, Sparkles, Droplets, MapPin } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Camera, FileText, Flame, Mountain, Route as RouteIcon, Siren, Wind, ShieldCheck, Copy, Sparkles, Droplets, MapPin, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { MobileNav } from "@/components/centinela/MobileNav";
 import { snapshotQuery, powerQuery } from "@/lib/nasa-queries";
 import { useQuery } from "@tanstack/react-query";
-import { fmtDate } from "@/lib/centinela-data";
+import { fmtDate, INCIDENTS } from "@/lib/centinela-data";
 import { departmentAt } from '@/lib/nasa-data';
 import { nearestReference } from '@/lib/fire-operations';
 import { classifyFrp } from '@/lib/fire-indices';
 import { FieldChannel } from '@/components/centinela/FieldChannel';
 import { TacButton } from '@/components/centinela/Brand';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { LanguageSelector } from '@/components/centinela/LanguageSelector';
+import { useI18n } from '@/lib/i18n';
 
 export const Route = createFileRoute("/alerta/$id")({
   loader: async ({ params, context }) => {
     const snapshot = await context.queryClient.ensureQueryData(snapshotQuery);
-    const inc = snapshot.incidents.find(i => i.id === params.id);
+    const inc = snapshot.incidents.find(i => i.id === params.id) ?? INCIDENTS.find(i => i.id === params.id);
     if (!inc) throw notFound();
     await context.queryClient.ensureQueryData(powerQuery(inc.lat, inc.lng));
     return inc;
@@ -37,6 +39,7 @@ export const Route = createFileRoute("/alerta/$id")({
 function Alert() {
   const inc = Route.useLoaderData();
   const power = useQuery(powerQuery(inc.lat, inc.lng));
+  const { t } = useI18n();
   const [channel, setChannel] = useState(false);
   const ok = inc.route.state === "Ruta Habilitada";
   const frpInfo = classifyFrp(inc.frp);
@@ -60,13 +63,21 @@ function Alert() {
     toast.success("Ficha táctica ICS-209 copiada");
   };
 
+  const openWhatsApp = () => {
+    const text = `🚨 *CENTINELA · DESPACHO TÁCTICO ICS-209*\n\n*Incidente:* ${inc.id}\n*Zona:* ${inc.zone}\n*Coordenadas:* ${inc.lat.toFixed(5)}, ${inc.lng.toFixed(5)}\n*Ubicación GPS:* https://www.google.com/maps?q=${inc.lat.toFixed(5)},${inc.lng.toFixed(5)}\n*Intensidad (FRP):* ${inc.frp ?? 'N/D'} MW (${frpInfo.category})\n*Confianza Satelital:* ${inc.confidence ?? 'N/D'}% (${inc.source})\n*Punto de Agua / Hidrante:* ${inc.hydrant?.name ?? 'Cisterna GAMC'} (${inc.hydrant?.distKm ?? 'N/D'} km)\n*Demanda Hídrica:* ~${frpInfo.recommendedWaterLiters} Litros\n*Combustible Vegetal:* ${inc.botany?.fuelModel ?? 'Pastizal / Ichu seco 90%'}\n*Recomendación:* ${frpInfo.tacticalAdvice}\n\n_Despachado vía CENTINELA · NASA Space Apps 2026_`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+  };
+
   return (
-    <div className="mx-auto min-h-screen max-w-md px-4 pb-24">
+    <div className="mx-auto min-h-screen w-full max-w-md md:max-w-2xl lg:max-w-3xl px-4 pb-24">
       <header className="flex items-center gap-3 py-4">
-        <Link to="/movil" aria-label="Volver" className="rounded-md p-1 hover:text-primary"><ArrowLeft className="h-6 w-6" /></Link>
+        <Link to="/movil" aria-label={t("back")} className="rounded-md p-1 hover:text-primary"><ArrowLeft className="h-6 w-6" /></Link>
         <AlertTriangle className="h-5 w-5 text-destructive" />
-        <h1 className="font-mono text-lg font-bold tracking-[0.3em]">ALERTA</h1>
-        <Link to="/dashboard" className="ml-auto font-mono text-[10px] uppercase text-primary hover:underline">Panel de mando →</Link>
+        <h1 className="font-mono text-lg font-bold tracking-[0.3em]">{t("navAlerts")}</h1>
+        <div className="ml-auto flex items-center gap-2">
+          <LanguageSelector />
+          <Link to="/dashboard" className="hidden sm:inline font-mono text-[10px] uppercase text-primary hover:underline">{t("navDashboard")} →</Link>
+        </div>
       </header>
 
       <section className={`glass rounded-xl p-4 animate-in fade-in ${isHarmonized ? 'border-primary/60 glow-primary' : 'border-destructive/50 glow-danger'}`}>
@@ -155,8 +166,15 @@ function Alert() {
 
       <div className="mt-4 space-y-2">
         <TacButton tone="primary" onClick={copyDispatch} className="w-full">
-          <Copy className="h-4 w-4" /> [ Copiar Ficha Táctica ICS-209 ]
+          <Copy className="h-4 w-4" /> [ {t("copyIcs209")} ]
         </TacButton>
+        <button
+          type="button"
+          onClick={openWhatsApp}
+          className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-md border border-green-500/40 bg-green-500/15 py-2 font-mono text-xs font-bold text-green-400 hover:bg-green-500/25 transition-colors shadow-sm"
+        >
+          <Share2 className="h-4 w-4" /> [ {t("dispatchWhatsApp")} ]
+        </button>
         <TacButton tone="danger" onClick={() => setChannel(true)} className="min-h-12 w-full">
           <Siren className="h-5 w-5" /> [ Contactar / registrar SOS ] →
         </TacButton>
@@ -168,7 +186,6 @@ function Alert() {
       </div>
 
       <Dialog open={channel} onOpenChange={setChannel}><DialogContent className="max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>Respuesta rápida · canal de campo</DialogTitle></DialogHeader><FieldChannel regionId={departmentAt(inc.lat,inc.lng)??'Cochabamba'}/></DialogContent></Dialog>
-      <MobileNav />
     </div>
   );
 }
