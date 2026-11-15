@@ -71,7 +71,7 @@ function Mobile() {
   const nasa = useNasa();
   const [selectedId, setSelectedId] = useState("");
   const w = nasa.weather ?? { temp: 31, wind: 35, rh: 17, windDir: "NE", windDeg: 45 };
-  const selected = nasa.incidents.find((i) => i.id === selectedId) ?? nasa.incidents[0];
+  const selected = selectedId ? (nasa.incidents.find((i) => i.id === selectedId) ?? null) : null;
   const active = nasa.incidents.length;
   const r = 34,
     c = 2 * Math.PI * r;
@@ -303,7 +303,7 @@ function Mobile() {
       <div className="glass relative mx-4 mt-2 h-[46vh] sm:h-[52vh] md:h-[58vh] min-h-[350px] md:min-h-[460px] overflow-hidden rounded-xl border border-primary/30">
         <TacticalMap
           incidents={nasa.incidents}
-          selectedId={selected?.id}
+          selectedId={selectedId || undefined}
           center={nasa.center}
           zoom={nasa.region?.zoom ?? 11}
           national={false}
@@ -313,7 +313,7 @@ function Mobile() {
           horizon={horizon}
           weather={w}
           wind={{ deg: w?.windDeg ?? 0, kmh: w?.wind ?? 0 }}
-          onSelect={setSelectedId}
+          onSelect={(id) => setSelectedId(id || "")}
           mode={tacticalMode}
           onModeChange={setTacticalMode}
           selectedRegionId={nasa.regionId}
@@ -330,6 +330,17 @@ function Mobile() {
 
         {open && (
           <div className="glass absolute left-14 right-2 top-14 z-[400] space-y-1 rounded-md p-2 text-xs animate-in fade-in">
+            <div className="flex items-center justify-between pb-1 border-b border-border/40">
+              <span className="font-bold text-[10px] uppercase text-primary">Capas NASA</span>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="text-muted-foreground hover:text-foreground text-xs font-bold px-1"
+                aria-label="Cerrar capas"
+              >
+                ✕
+              </button>
+            </div>
             {(["thermal", "viirs", "viirsThermal", "modis"] as (keyof L)[]).map((k) => (
               <label key={k} className="flex items-center gap-2">
                 <input
@@ -349,18 +360,6 @@ function Mobile() {
             ))}
           </div>
         )}
-
-        <div className="glass absolute inset-x-2 bottom-2 z-[400] flex flex-wrap justify-around gap-2 rounded-md px-2 py-1.5 text-[10px]">
-          <span className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-full bg-fire" /> Focos · {nasa.snapshot.source}
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-full bg-primary" /> Comunidades
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-full bg-success" /> Áreas protegidas
-          </span>
-        </div>
       </div>
 
       {/* BOTONES FLOTANTES DE ACCIÓN RÁPIDA (MODO BRIGADISTA EN TERRENO) */}
@@ -436,7 +435,7 @@ function Mobile() {
       <div className="mx-4 mt-3">
         <OperationsPanel
           incidents={nasa.incidents}
-          selected={selected}
+          selected={selected ?? undefined}
           weather={w}
           weatherReal={nasa.weatherReal}
           weatherDate={nasa.weatherDate}

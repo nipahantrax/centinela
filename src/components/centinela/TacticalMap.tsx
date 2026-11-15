@@ -241,6 +241,18 @@ export function TacticalMap({
     return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
   }, [selectedIncident, nearestWaterSelected, selectedForecast, wind]);
 
+  const [closedId, setClosedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (selectedId && selectedId !== closedId) {
+      setClosedId(null);
+    }
+  }, [selectedId, closedId]);
+
+  const isInspectorVisible = Boolean(
+    selectedIncident && (!closedId || (closedId !== selectedIncident.id && closedId !== "all"))
+  );
+
   useEffect(() => {
     let cancelled = false;
     import("leaflet").then(async (mod) => {
@@ -283,6 +295,8 @@ export function TacticalMap({
       });
 
       map.current.on("click", (e: Leaflet.LeafletMouseEvent) => {
+        setClosedId("all");
+        onSelectRef.current?.("");
         // Registrar punto táctico para clima local sin interrumpir el viewport ni forzar re-centrado
         if (departmentAt(e.latlng.lat, e.latlng.lng)) {
           lastTarget.current = {
@@ -1156,6 +1170,7 @@ export function TacticalMap({
       )
       .on("click", (e: Leaflet.LeafletMouseEvent) => {
         lib.DomEvent.stopPropagation(e);
+        setClosedId(null);
         onSelectRef.current?.(i.id);
       })
       .addTo(g);
@@ -1381,11 +1396,14 @@ export function TacticalMap({
       </div>
 
       {/* INSPECTOR TÁCTICO FLOTANTE ANCLADO (REEMPLAZA VENTANAS PERDIDAS / POPUPS DESBORDADOS) */}
-      {selectedIncident && (
+      {isInspectorVisible && selectedIncident && (
         <div
           role="dialog"
           aria-label="Inspector de Emergencia Táctica"
-          className="glass absolute bottom-12 right-2 sm:right-4 z-[410] w-[calc(100vw-16px)] sm:w-[380px] max-h-[72vh] overflow-y-auto rounded-2xl p-4 shadow-2xl backdrop-blur-xl border border-primary/50 text-foreground animate-in fade-in slide-in-from-bottom-3 duration-200"
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          className="glass absolute bottom-2 sm:bottom-12 right-1 sm:right-4 left-1 sm:left-auto z-[500] w-auto sm:w-[380px] max-h-[calc(100%-16px)] sm:max-h-[72vh] overflow-y-auto rounded-2xl p-3.5 shadow-2xl backdrop-blur-xl border border-primary/50 text-foreground animate-in fade-in slide-in-from-bottom-2 duration-150"
         >
           {/* Cabecera */}
           <div className="flex items-start justify-between gap-2 pb-2 border-b border-border/50">
@@ -1423,8 +1441,21 @@ export function TacticalMap({
             </div>
             <button
               type="button"
-              onClick={() => onSelectRef.current?.("")}
-              className="h-7 w-7 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-muted-foreground hover:text-foreground flex items-center justify-center font-bold text-sm transition-colors shrink-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                if (selectedIncident) setClosedId(selectedIncident.id);
+                else setClosedId("all");
+                onSelectRef.current?.("");
+              }}
+              onTouchEnd={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                if (selectedIncident) setClosedId(selectedIncident.id);
+                else setClosedId("all");
+                onSelectRef.current?.("");
+              }}
+              className="h-8 w-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center font-bold text-base transition-colors shrink-0 cursor-pointer active:scale-90 shadow border border-slate-600/50"
               title="Cerrar inspector táctico"
               aria-label="Cerrar inspector táctico"
             >

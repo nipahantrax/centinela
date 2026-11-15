@@ -165,7 +165,7 @@ function Dashboard() {
     });
   }, [incidents, activeFilter]);
 
-  const selected = filteredIncidents.find((i) => i.id === selectedId) ?? filteredIncidents[0] ?? incidents[0];
+  const selected = selectedId ? (filteredIncidents.find((i) => i.id === selectedId) ?? null) : null;
   const risk = ignitionRisk(activeWeather.temp, activeWeather.wind, activeWeather.rh);
   const frpInfo = selected ? classifyFrp(selected.frp) : null;
   const rule30 = evaluateRule30_30_30(activeWeather.temp, activeWeather.wind, activeWeather.rh);
@@ -593,8 +593,8 @@ function Dashboard() {
           <div className="glass relative min-h-[680px] lg:h-[76vh] w-full overflow-hidden rounded-xl border border-primary/40 shadow-2xl">
             <TacticalMap
               incidents={filteredIncidents}
-              selectedId={selected?.id}
-              onSelect={setSelectedId}
+              selectedId={selectedId || undefined}
+              onSelect={(id) => setSelectedId(id || "")}
               center={center}
               zoom={nasa.region?.zoom ?? 11}
               national={false}
@@ -647,7 +647,7 @@ function Dashboard() {
           {/* PANEL DE OPERACIONES: REGLA 30-30-30, MICROSOFT WEATHER, BOTÁNICA Y ACCIONES */}
           <OperationsPanel
             incidents={filteredIncidents}
-            selected={selected}
+            selected={selected ?? undefined}
             weather={activeWeather}
             weatherReal={nasa.weatherReal}
             weatherDate={nasa.weatherDate}
@@ -877,11 +877,30 @@ function Dashboard() {
               </div>
             </>
           ) : (
-            <Panel>
-              <p className="text-sm text-muted-foreground">
-                Sin incidentes activos para el filtro seleccionado.
-              </p>
-            </Panel>
+            <div className="space-y-4">
+              <Panel title={t("tacticalInspector")}>
+                <div className="text-center p-6 text-muted-foreground text-xs space-y-2">
+                  <MapPin className="h-6 w-6 mx-auto text-primary/60" />
+                  <p className="font-bold text-foreground">Ningún foco seleccionado</p>
+                  <p className="text-[11px] leading-relaxed">
+                    Haz clic en cualquier foco del mapa o en la lista superior para inspeccionar su telemetría térmica, rutas de agua y despacho.
+                  </p>
+                </div>
+              </Panel>
+              <div className="grid grid-cols-2 gap-2">
+                <TacButton
+                  tone={sirenArmed ? "danger" : "ghost"}
+                  className="text-xs font-bold"
+                  onClick={() => void toggleSiren()}
+                >
+                  <Siren className={`h-3.5 w-3.5 ${sirenArmed ? "animate-spin text-destructive" : ""}`} />
+                  {sirenArmed ? "🚨 Sirena ON" : "🚨 Activar Sirena"}
+                </TacButton>
+                <TacButton tone="danger" className="text-xs font-bold" onClick={() => setChannelOpen(true)}>
+                  <Radio className="h-3.5 w-3.5 text-white animate-pulse" /> [ 📡 SOS ]
+                </TacButton>
+              </div>
+            </div>
           )}
         </aside>
       </div>
