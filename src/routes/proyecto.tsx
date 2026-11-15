@@ -22,6 +22,7 @@ import shield from "@/assets/shield.png";
 import { Panel } from "@/components/centinela/Shell";
 import { TacButton } from "@/components/centinela/Brand";
 import { LanguageSelector } from "@/components/centinela/LanguageSelector";
+import { ShareQRModal } from "@/components/centinela/ShareQRModal";
 import { COCHABAMBA_STATS_2026 } from "@/lib/map-content";
 import { NODES } from "@/lib/centinela-data";
 
@@ -68,8 +69,9 @@ function Proyecto() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <LanguageSelector compact />
+            <ShareQRModal buttonLabel="[ 📱 QR Acceso Móvil / Jurado ]" />
             <button
               type="button"
               onClick={handlePrint}

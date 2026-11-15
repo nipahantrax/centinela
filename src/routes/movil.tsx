@@ -27,6 +27,7 @@ import { MobileNav } from "@/components/centinela/MobileNav";
 import { TacticalMap, type Layers as L } from "@/components/centinela/TacticalMap";
 import { MunicipalityRibbon } from "@/components/centinela/MunicipalityRibbon";
 import { LanguageSelector } from "@/components/centinela/LanguageSelector";
+import { ShareQRModal } from "@/components/centinela/ShareQRModal";
 import { useI18n } from "@/lib/i18n";
 import {
   NODES,
@@ -202,6 +203,7 @@ function Mobile() {
         </span>
         <div className="flex items-center gap-2">
           <LanguageSelector compact />
+          <ShareQRModal buttonLabel="[ 📱 QR ]" />
           <Link to="/proyecto" className="text-primary underline font-bold hover:text-primary/80">
             {t("navProject")} →
           </Link>

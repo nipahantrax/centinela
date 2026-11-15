@@ -61,6 +61,7 @@ import { TacticalCompass } from "@/components/centinela/TacticalCompass";
 import { HarmonizationBadge } from "@/components/centinela/HarmonizationBadge";
 import { MunicipalityRibbon } from "@/components/centinela/MunicipalityRibbon";
 import { LanguageSelector } from "@/components/centinela/LanguageSelector";
+import { ShareQRModal } from "@/components/centinela/ShareQRModal";
 import { useI18n } from "@/lib/i18n";
 import { FieldChannel } from "@/components/centinela/FieldChannel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -382,6 +383,7 @@ function Dashboard() {
           </nav>
 
           <LanguageSelector compact />
+          <ShareQRModal buttonLabel="[ 📱 QR Acceso Móvil / Jurado ]" />
 
           <div className="flex items-center gap-1 sm:gap-1.5">
             <button
