@@ -1,71 +1,99 @@
 import { riskLabel } from "@/lib/centinela-data";
-import { AlertTriangle, Flame } from "lucide-react";
-import { useI18n } from "@/lib/i18n";
+import { Activity } from "lucide-react";
 
-interface Props {
-  value?: number | null;
-  isRule30Active?: boolean;
-}
-
-export function RiskGauge({ value = 86, isRule30Active }: Props) {
-  const { t } = useI18n();
-  const safeValue = value != null && Number.isFinite(value) && value > 0 ? Math.round(value) : 86;
-  const r = 52, c = 2 * Math.PI * r;
-  const { tone } = riskLabel(safeValue);
-  const color = isRule30Active ? "var(--destructive)" : `var(--${tone})`;
-  const localizedLabel =
-    safeValue >= 80
-      ? t("riskHigh")
-      : safeValue >= 40
-      ? t("riskModerate")
-      : t("riskLow");
+export function RiskGauge({ value }: { value: number }) {
+  const r = 48;
+  const c = 2 * Math.PI * r;
+  const { label } = riskLabel(value);
+  
+  // Sci-fi tone styling
+  const isCritical = value >= 75;
+  const isModerate = value >= 40 && value < 75;
+  
+  const ringColor = isCritical ? "#ff334b" : isModerate ? "#f59e0b" : "#00e5ff";
+  const glowShadow = isCritical
+    ? "drop-shadow(0 0 10px rgba(255,51,75,0.7))"
+    : isModerate
+      ? "drop-shadow(0 0 8px rgba(245,158,11,0.6))"
+      : "drop-shadow(0 0 8px rgba(0,229,255,0.6))";
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-4">
-        <div className="relative h-28 w-28 shrink-0">
-          <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
-            <circle cx="60" cy="60" r={r} fill="none" stroke="var(--muted)" strokeWidth="10" />
-            <circle
-              cx="60"
-              cy="60"
-              r={r}
-              fill="none"
-              stroke={color}
-              strokeWidth="10"
-              strokeLinecap="round"
-              strokeDasharray={c}
-              strokeDashoffset={c * (1 - safeValue / 100)}
-              style={{
-                transition: "stroke-dashoffset 1s ease, stroke .5s",
-                filter: `drop-shadow(0 0 8px ${color})`,
-              }}
-            />
-          </svg>
-          <div className="absolute inset-0 grid place-items-center font-mono text-2xl font-bold">
-            {safeValue}%
-          </div>
-        </div>
-        <div className="space-y-1">
-          <div className="text-xs uppercase tracking-widest text-muted-foreground">
-            {t("ignitionRiskTitle")}
-          </div>
-          <div className="text-xl font-bold flex items-center gap-1.5" style={{ color }}>
-            {localizedLabel}
-            {isRule30Active && <Flame className="h-5 w-5 animate-bounce text-destructive" />}
-          </div>
-          <div className="font-mono text-[10px] text-muted-foreground">
-            35% {t("tempLabel")} · 35% {t("windLabel")} · 30% {t("humidityLabel")}
-          </div>
+    <div className="flex items-center justify-between gap-4">
+      {/* Sci-Fi Circular Radial Gauge with dual concentric rings */}
+      <div className="relative h-28 w-28 shrink-0">
+        <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
+          {/* Outer dashed decoration ring */}
+          <circle
+            cx="60"
+            cy="60"
+            r="55"
+            fill="none"
+            stroke="rgba(56, 189, 248, 0.15)"
+            strokeWidth="1.5"
+            strokeDasharray="4 6"
+          />
+          {/* Inner background track */}
+          <circle
+            cx="60"
+            cy="60"
+            r={r}
+            fill="none"
+            stroke="rgba(15, 23, 42, 0.8)"
+            strokeWidth="8"
+          />
+          {/* Glowing active progress ring */}
+          <circle
+            cx="60"
+            cy="60"
+            r={r}
+            fill="none"
+            stroke={ringColor}
+            strokeWidth="8"
+            strokeLinecap="round"
+            strokeDasharray={c}
+            strokeDashoffset={c * (1 - Math.min(Math.max(value, 0), 100) / 100)}
+            style={{
+              transition: "stroke-dashoffset 1s ease-out, stroke 0.5s ease",
+              filter: glowShadow,
+            }}
+          />
+        </svg>
+
+        {/* Center Percentage Display */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+          <span className="font-mono text-2xl font-black tracking-tight text-white" style={{ textShadow: `0 0 12px ${ringColor}` }}>
+            {value}%
+          </span>
+          <span className="font-mono text-[9px] uppercase tracking-widest text-slate-400">
+            ÍNDICE
+          </span>
         </div>
       </div>
 
-      {isRule30Active && (
-        <div className="flex items-center gap-2 rounded border border-destructive bg-destructive/20 px-2.5 py-1.5 font-mono text-xs font-bold text-destructive animate-pulse">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
-          <span>[ {t("rule303030Active")} ]</span>
+      {/* Telemetry Breakdown Details */}
+      <div className="flex-1 space-y-1">
+        <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-slate-400">
+          <Activity className="h-3 w-3 text-cyan-400 animate-pulse" />
+          <span>Riesgo Ignición</span>
         </div>
-      )}
+        
+        <div
+          className="font-mono text-xl font-black uppercase tracking-wider"
+          style={{ color: ringColor, textShadow: `0 0 14px ${ringColor}` }}
+        >
+          {label}
+        </div>
+
+        <div className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-1.5 font-mono text-[9px] text-slate-400">
+          <div className="flex justify-between">
+            <span>NASA POWER FWI:</span>
+            <span className="text-cyan-300 font-bold">ALGORITMO 30-30-30</span>
+          </div>
+          <div className="mt-0.5 text-slate-500">
+            Temp(35%) · Viento(30%) · Humedad(35%)
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

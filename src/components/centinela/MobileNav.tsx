@@ -1,46 +1,50 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Bell, FileBarChart, Map, LayoutDashboard, Award } from "lucide-react";
-import { useI18n } from "@/lib/i18n";
+import { Bell, FileBarChart, Map, Menu, Phone } from "lucide-react";
+import { toast } from "sonner";
 
 export function MobileNav() {
   const { pathname } = useLocation();
-  const { t } = useI18n();
   const items = [
-    { l: t("navTactical"), i: LayoutDashboard, to: "/dashboard" as const },
-    { l: t("navMobile"), i: Map, to: "/movil" as const },
-    { l: t("navAlerts"), i: Bell, to: "/alerta/$id" as const, params: { id: "INC-2026-0712" } },
-    { l: t("navReports"), i: FileBarChart, to: "/reportes" as const },
-    { l: t("navProject"), i: Award, to: "/proyecto" as const },
+    { l: "Mapa", i: Map, to: "/movil" as const },
+    { l: "Alertas", i: Bell, to: "/alerta/$id" as const, params: { id: "INC-2026-0712" } },
+    { l: "Reportes", i: FileBarChart, to: "/reportes" as const },
   ];
 
   return (
-    <nav
-      aria-label="Navegación táctica móvil"
-      className="fixed bottom-0 left-0 right-0 z-[9999] bg-slate-950/95 backdrop-blur-md border-t border-slate-800 h-16 grid grid-cols-5 items-center px-2 pb-[env(safe-area-inset-bottom)] shadow-2xl lg:hidden"
-    >
+    <nav className="glass fixed inset-x-0 bottom-0 z-[500] grid grid-cols-5 border-x-0 border-b-0 border-t border-cyan-500/20 bg-slate-950/85 backdrop-blur-xl pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_24px_rgba(0,0,0,0.7)]">
       {items.map((it) => {
-        const active =
-          pathname === it.to ||
-          (it.to === "/alerta/$id" && pathname.startsWith("/alerta")) ||
-          (it.to === "/proyecto" && pathname === "/proyecto") ||
-          (it.to === "/reportes" && pathname === "/reportes") ||
-          (it.to === "/movil" && pathname === "/movil") ||
-          (it.to === "/dashboard" && pathname === "/dashboard");
+        const active = pathname === it.to || (it.l === "Alertas" && pathname.startsWith("/alerta"));
         return (
           <Link
             key={it.l}
             to={it.to}
-            params={("params" in it ? it.params : undefined) as never}
-            className={`flex min-h-[48px] flex-col items-center justify-center gap-0.5 py-1 text-[9px] sm:text-[10px] uppercase tracking-wider transition-colors ${
-              active ? "text-primary font-bold" : "text-muted-foreground hover:text-foreground"
+            params={it.params as never}
+            className={`flex flex-col items-center justify-center gap-1 py-2 font-mono text-[9px] font-bold uppercase tracking-wider transition-all duration-200 ${
+              active ? "text-cyan-300 drop-shadow-[0_0_8px_rgba(0,229,255,0.6)]" : "text-slate-400 hover:text-slate-200"
             }`}
           >
-            <it.i className={`h-4 w-4 sm:h-5 sm:w-5 ${active ? "text-primary drop-shadow-[0_0_6px_var(--primary)]" : ""}`} />
-            <span className="truncate max-w-[64px] text-center">{it.l}</span>
-            {active && <span className="h-0.5 w-6 rounded bg-primary glow-primary mt-0.5" />}
+            <it.i className={`h-4 w-4 ${active ? "text-cyan-300" : "text-slate-400"}`} />
+            <span>{it.l}</span>
+            {active && <span className="h-0.5 w-6 rounded-full bg-cyan-400 shadow-[0_0_8px_#00e5ff]" />}
           </Link>
         );
       })}
+      <button
+        onClick={() =>
+          toast.info("Línea de Emergencia: Bomberos GAMC 119 · Policía 110 · Operación CENTINELA")
+        }
+        className="flex flex-col items-center justify-center gap-1 py-2 font-mono text-[9px] font-bold uppercase tracking-wider text-slate-400 hover:text-slate-200"
+      >
+        <Phone className="h-4 w-4" />
+        <span>Emergencia</span>
+      </button>
+      <Link
+        to="/dashboard"
+        className="flex flex-col items-center justify-center gap-1 py-2 font-mono text-[9px] font-bold uppercase tracking-wider text-slate-400 hover:text-cyan-300"
+      >
+        <Menu className="h-4 w-4" />
+        <span>Desktop</span>
+      </Link>
     </nav>
   );
 }

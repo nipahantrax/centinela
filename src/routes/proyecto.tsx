@@ -1,368 +1,213 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import {
-  ArrowRight,
-  Award,
-  CheckCircle2,
-  Compass,
-  Download,
-  FileSpreadsheet,
-  Flame,
-  Globe2,
-  Leaf,
-  Printer,
-  Satellite,
-  ShieldAlert,
-  ShieldCheck,
-  Sparkles,
-  TreePine,
-  Truck,
-  Zap,
-} from "lucide-react";
-import shield from "@/assets/shield.png";
+import { ArrowRight, Building2, Palette, Satellite, Zap, Shield, Sparkles, Orbit } from "lucide-react";
 import { Panel } from "@/components/centinela/Shell";
-import { TacButton } from "@/components/centinela/Brand";
-import { LanguageSelector } from "@/components/centinela/LanguageSelector";
-import { ShareQRModal } from "@/components/centinela/ShareQRModal";
-import { COCHABAMBA_STATS_2026 } from "@/lib/map-content";
-import { NODES } from "@/lib/centinela-data";
 
 export const Route = createFileRoute("/proyecto")({
   head: () => ({
     meta: [
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { title: "CENTINELA · Arquitectura de Mando y Despacho Operativo GAMC" },
+      { title: "CENTINELA · Dossier de Misión Orbital" },
       {
         name: "description",
         content:
-          "Especificación técnica y arquitectura del sistema CENTINELA para el Gobierno Autónomo Municipal de Cochabamba y el Parque Nacional Tunari · NASA Space Apps Challenge 2026.",
+          "Plan estratégico y arquitectura de CENTINELA para NASA Space Apps Cochabamba 2026: armonización de focos MODIS y VIIRS con recursos del GAMC.",
       },
-      { property: "og:title", content: "CENTINELA · Arquitectura de Mando y Despacho Operativo GAMC" },
-      { property: "og:description", content: "Marco de ingeniería aeroespacial, botánica pirogénica y respuesta municipal ante incendios forestales." },
+      { property: "og:title", content: "CENTINELA · Dossier de Misión Orbital" },
+      {
+        property: "og:description",
+        content: "Pilares, arquitectura espacial y hoja de ruta del proyecto CENTINELA.",
+      },
     ],
   }),
   component: Proyecto,
 });
 
-function Proyecto() {
-  const handlePrint = () => {
-    window.print();
-  };
+const pillars = [
+  {
+    i: Satellite,
+    t: "Inteligencia Satelital (NASA)",
+    d: "Integración con FIRMS, POWER y GIBS para detectar anomalías térmicas en tiempo real, variables aerodinámicas de propagación y ortoimágenes de alta resolución.",
+  },
+  {
+    i: Building2,
+    t: "Acción Local (GAMC)",
+    d: "Mapeo georreferenciado de fuentes hídricas (represas, tanques SEMAPA, hidrantes) y rutas de acceso táctico hacia el Parque Nacional Tunari.",
+  },
+  {
+    i: Zap,
+    t: "Arquitectura Reactiva",
+    d: "Mando táctico ultra-rápido en Vite + TanStack Start con renderizado de vectores en milisegundos y cálculo de riesgo FWI.",
+  },
+  {
+    i: Palette,
+    t: "Diseño Orbital HUD",
+    d: "Estética Sci-Fi Space Exploration HUD inspirada en centros de control aeroespacial con contrastes cian, esmeralda y alerta térmica.",
+  },
+];
 
+const apis = [
+  [
+    "NASA FIRMS",
+    "Coordenadas, brillo radiativo (FRP en MW) y confianza térmica de los sensores MODIS y VIIRS. Fuente de verdad para el algoritmo de alerta.",
+  ],
+  [
+    "NASA POWER",
+    "Velocidad, dirección del viento y humedad relativa geolocalizadas para proyectar vectores de avance y riesgo de ignición 30-30-30.",
+  ],
+  [
+    "NASA GIBS",
+    "Capas base satelitales de reflectancia real (True Color) y anomalías térmicas para verificación visual de columnas de humo.",
+  ],
+];
+
+const plan = [
+  ["Fase 01 · 08:00", "Apertura y Datos", "Conexión a APIs NASA, ingestión GeoJSON del municipio y Parque Tunari."],
+  ["Fase 02 · 10:00", "Motor de Armonización", "Algoritmo de clustering espacial euclidiano (1.5 km) y temporal (12 h) MODIS + VIIRS."],
+  ["Fase 03 · 14:00", "Centro de Mando HUD", "Interfaz Sci-Fi con mapa Leaflet táctico, rosa de viento y tac-grid."],
+  ["Fase 04 · 19:00", "Integración Logística", "Rutas de acceso, hidrantes GAMC y copiado de fichas ICS-209 para brigadas."],
+  ["Fase 05 · 09:00", "Optimización y QA", "Widescreen real, anti-colisión de controles y pruebas de rendimiento."],
+  ["Fase 06 · 12:00", "Despliegue y Pitch", "Publicación en producción y simulación interactiva para el jurado."],
+];
+
+function Proyecto() {
   return (
-    <div className="tac-grid min-h-screen">
-      <div className="mx-auto max-w-5xl space-y-6 px-3 sm:px-4 py-8 pb-24 lg:pb-8">
-        {/* Encabezado Institucional GAMC */}
-        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-primary/20 pb-6">
+    <div className="w-full min-h-screen bg-[#060913] hud-bg text-slate-100 font-sans selection:bg-cyan-500/30 py-8 px-4">
+      <div className="mx-auto max-w-5xl space-y-6">
+        {/* Holographic Header */}
+        <header className="glass rounded-3xl p-6 border border-cyan-500/20 shadow-[0_8px_32px_rgba(0,0,0,0.6)] flex flex-wrap items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <img src={shield} alt="Escudo CENTINELA" width={816} height={816} className="h-16 w-16" />
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-cyan-400/40 bg-cyan-950/40 shadow-[0_0_24px_rgba(0,229,255,0.35)]">
+              <Shield className="h-8 w-8 text-cyan-300 animate-pulse" />
+            </div>
             <div>
-              <p className="font-mono text-xs uppercase tracking-[0.3em] text-fire font-bold">
-                Gobierno Autónomo Municipal de Cochabamba · Parque Tunari
+              <p className="font-mono text-xs uppercase tracking-[0.25em] text-cyan-400">
+                NASA Space Apps Challenge · Cochabamba 2026
               </p>
-              <h1 className="font-mono text-3xl font-bold tracking-wider text-foreground">
-                CENTINELA · Sistema Táctico B2G
+              <h1 className="font-mono text-3xl font-black tracking-wider text-white">
+                MISIÓN CENTINELA
               </h1>
-              <p className="text-sm text-muted-foreground">
-                Ingeniería Geoespacial y Respuesta Rápida · Reto NASA: <b className="text-primary">Harmonization of MODIS and VIIRS Hot Spots</b>
+              <p className="text-sm text-slate-400">
+                Desafío: <b className="text-cyan-300">Harmonization of MODIS and VIIRS Hot Spots</b> · Parque Tunari GAMC
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            <LanguageSelector compact />
-            <ShareQRModal buttonLabel="[ 📱 QR Acceso Móvil / Jurado ]" />
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="flex items-center gap-1.5 rounded-md border border-border bg-secondary/50 px-3 py-2 font-mono text-xs text-foreground hover:bg-secondary transition-colors"
-            >
-              <Printer className="h-4 w-4" /> Imprimir Documento
-            </button>
-            <Link
-              to="/dashboard"
-              className="flex items-center gap-2 rounded-md border border-primary/60 bg-primary/15 px-4 py-2 font-mono text-xs uppercase text-primary glow-primary hover:bg-primary/25 transition-colors"
-            >
-              Centro de Mando <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
+          <Link
+            to="/dashboard"
+            className="flex items-center gap-2 rounded-xl border border-cyan-400/50 bg-cyan-500/20 px-4 py-2.5 font-mono text-xs font-bold uppercase tracking-wider text-white shadow-[0_0_20px_rgba(0,229,255,0.3)] transition-all hover:bg-cyan-500/30 active:scale-[0.98]"
+          >
+            <span>Centro de Mando</span>
+            <ArrowRight className="h-4 w-4 text-cyan-300" />
+          </Link>
         </header>
 
-        {/* Resumen Ejecutivo de Arquitectura Municipal */}
-        <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 font-mono text-xs font-bold text-primary uppercase">
-                <ShieldCheck className="h-4 w-4" />
-                <span>Plataforma Municipal de Alerta Temprana y Despacho Operativo</span>
+        {/* Objetivo de la Misión */}
+        <Panel title="Objetivo Estratégico">
+          <p className="text-slate-200 leading-relaxed text-sm">
+            Plataforma interactiva de alerta temprana y despacho táctico de incendios para el{' '}
+            <b className="text-cyan-300">Parque Nacional Tunari</b>, fusionando anomalías térmicas satelitales NASA con
+            recursos hídricos y logísticos municipales.{' '}
+            <span className="text-slate-400">
+              Los datos satelitales por sí solos informan; cruzados con la infraestructura en tierra del GAMC, salvan vidas y
+              bosques.
+            </span>
+          </p>
+        </Panel>
+
+        {/* Cuatro Pilares Arquitectónicos */}
+        <div className="grid gap-3.5 sm:grid-cols-2">
+          {pillars.map((p, n) => (
+            <Panel key={p.t} className="border-cyan-500/15">
+              <div className="flex gap-3.5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-cyan-500/30 bg-cyan-950/40 text-cyan-300">
+                  <p.i className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-cyan-400">
+                    Pilar 0{n + 1}
+                  </div>
+                  <h3 className="font-mono text-sm font-bold text-white">{p.t}</h3>
+                  <p className="mt-1 text-xs text-slate-400 leading-relaxed">{p.d}</p>
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                CENTINELA conecta satélites de órbita baja de la NASA con la logística terrestre municipal de los 11 municipios del Parque Nacional Tunari (GAMC, UGR, Bomberos 119, SAR Bolivia y SERNAP), cerrando la brecha entre la detección del sensor y la autobomba en terreno en menos de 25 minutos.
-              </p>
-            </div>
+            </Panel>
+          ))}
+        </div>
+
+        {/* Flujo de Datos Espacial */}
+        <Panel title="Arquitectura y Flujo de Telemetría">
+          <div className="flex flex-wrap items-center justify-center gap-2 font-mono text-xs">
+            {["APIs NASA + Datos GAMC", "Motor Armonización MODIS/VIIRS", "Cálculo FWI + Viento", "Dashboard Táctico HUD"].map(
+              (s, i, a) => (
+                <span key={s} className="flex items-center gap-2">
+                  <span className="rounded-xl border border-cyan-500/30 bg-cyan-950/40 px-3 py-2 text-cyan-200">
+                    {s}
+                  </span>
+                  {i < a.length - 1 && <ArrowRight className="h-4 w-4 text-slate-500" />}
+                </span>
+              )
+            )}
           </div>
-        </div>
 
-        {/* ======================================================== */}
-        {/* LOS 5 PILARES TÉCNICOS Y OPERATIVOS                      */}
-        {/* ======================================================== */}
-        <div className="space-y-6">
-          {/* PILAR 1: IMPACTO */}
-          <Panel className="border-l-4 border-l-primary/80">
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="rounded bg-primary/20 px-2 py-0.5 font-mono text-xs font-bold text-primary">
-                    PILAR 1
-                  </span>
-                  <h2 className="font-mono text-lg font-bold text-foreground">
-                    IMPACTO TERRITORIAL: El problema no es detectar, es llegar a tiempo
-                  </h2>
-                </div>
-                <p className="text-sm font-semibold italic text-primary/90">
-                  "Lamentarse es peligroso para Cochabamba. La clave de la supervivencia del Tunari es la velocidad de respuesta."
-                </p>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Los satélites de órbita polar detectan fuego cuando ya existe llama; si una brigada tarda horas en subir las pendientes del Tunari, el pastizal ya consumió hectáreas de bosque nativo. CENTINELA acorta la brecha táctica entre el sensor espacial y la autobomba en terreno con pre-despacho y geolocalización inmediata de hidrantes.
-                </p>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            {apis.map(([t, d]) => (
+              <div key={t} className="rounded-xl border border-slate-800/80 bg-slate-950/50 p-3 font-mono">
+                <div className="text-xs font-bold text-cyan-300">{t}</div>
+                <p className="mt-1 text-xs text-slate-400 leading-normal">{d}</p>
               </div>
-              <ShieldAlert className="h-10 w-10 text-fire shrink-0" />
-            </div>
-
-            {/* Métricas verificadas de Bolivia y Cochabamba */}
-            <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center font-mono text-xs">
-              <div className="rounded border border-destructive/40 bg-destructive/10 p-2">
-                <span className="block text-[10px] text-muted-foreground">Bolivia 2024 (SIMB)</span>
-                <span className="text-sm font-bold text-destructive">10,77M ha</span>
-                <span className="block text-[9px] text-muted-foreground">Récord histórico</span>
-              </div>
-              <div className="rounded border border-warning/40 bg-warning/10 p-2">
-                <span className="block text-[10px] text-muted-foreground">Bolivia 2025</span>
-                <span className="text-sm font-bold text-warning">2,6M ha</span>
-                <span className="block text-[9px] text-muted-foreground">Área quemada</span>
-              </div>
-              <div className="rounded border border-fire/40 bg-fire/10 p-2">
-                <span className="block text-[10px] text-muted-foreground">Cochabamba 2026</span>
-                <span className="text-sm font-bold text-fire">+{COCHABAMBA_STATS_2026.fireIncrease2026Percent}%</span>
-                <span className="block text-[9px] text-muted-foreground">Incremento de incendios</span>
-              </div>
-              <div className="rounded border border-success/40 bg-success/10 p-2">
-                <span className="block text-[10px] text-muted-foreground">Meta de Respuesta GAMC</span>
-                <span className="text-sm font-bold text-success">&le; {COCHABAMBA_STATS_2026.responseTargetMinutes} min</span>
-                <span className="block text-[9px] text-muted-foreground">Arribo de cisterna</span>
-              </div>
-            </div>
-          </Panel>
-
-          {/* PILAR 2: CREATIVIDAD */}
-          <Panel className="border-l-4 border-l-amber-500/80">
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="rounded bg-amber-500/20 px-2 py-0.5 font-mono text-xs font-bold text-amber-500">
-                    PILAR 2
-                  </span>
-                  <h2 className="font-mono text-lg font-bold text-foreground">
-                    INNOVACIÓN TÁCTICA: Motor 100% Preventivo (NASA POWER + Microsoft Weather)
-                  </h2>
-                </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  No esperamos a que el satélite vea la llama: transformamos CENTINELA de un mapa reactivo a un <b>motor predictivo de susceptibilidad</b>. Cruzamos el pronóstico horario de <b>Microsoft Weather API</b> con la telemetría histórica de <b>NASA POWER</b> (días acumulados de sequía, ráfagas extremas y 0% precipitación) para emitir alertas rojas de <b>Apresto Preventivo</b> antes de la primera chispa.
-                </p>
-                <div className="grid sm:grid-cols-3 gap-2 pt-1 font-mono text-xs">
-                  <div className="rounded border border-border/60 bg-background/50 p-2">
-                    <span className="font-bold text-primary">Pre-Despacho Municipal:</span>
-                    <p className="text-[11px] text-muted-foreground">Posicionamiento preventivo de cisternas en los 11 municipios del Tunari ante riesgo extremo.</p>
-                  </div>
-                  <div className="rounded border border-border/60 bg-background/50 p-2">
-                    <span className="font-bold text-green-500">WhatsApp Cloud Directo:</span>
-                    <p className="text-[11px] text-muted-foreground">Envío en 1 clic de fichas ICS-209 preformateadas a Bomberos 119, SAR Bolivia, SERNAP y UGR.</p>
-                  </div>
-                  <div className="rounded border border-border/60 bg-background/50 p-2">
-                    <span className="font-bold text-amber-500">Acceso Ciudadano Libre:</span>
-                    <p className="text-[11px] text-muted-foreground">Portal público en <code>/publico</code> sin registro para que la comunidad fiscalice quemas ilegales.</p>
-                  </div>
-                </div>
-              </div>
-              <Sparkles className="h-10 w-10 text-amber-400 shrink-0" />
-            </div>
-          </Panel>
-
-          {/* PILAR 3: VALIDEZ */}
-          <Panel className="border-l-4 border-l-emerald-500/80">
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="rounded bg-emerald-500/20 px-2 py-0.5 font-mono text-xs font-bold text-emerald-400">
-                    PILAR 3
-                  </span>
-                  <h2 className="font-mono text-lg font-bold text-foreground">
-                    VALIDEZ CIENTÍFICA: Física Termodinámica y Botánica Pirogénica de los 11 Municipios
-                  </h2>
-                </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  La solución está rigurosamente fundamentada en la ciencia del fuego y las especies botánicas nativas e introducidas de Cochabamba:
-                </p>
-
-                <div className="grid sm:grid-cols-2 gap-3 text-xs pt-1">
-                  <div className="rounded border border-border/60 bg-background/50 p-3 space-y-1">
-                    <b className="font-mono text-destructive flex items-center gap-1">
-                      <Flame className="h-4 w-4" /> 1. Termodinámica Real y Regla 30-30-30
-                    </b>
-                    <ul className="list-disc pl-4 text-muted-foreground space-y-1 text-[11px]">
-                      <li><b>Punto de Ignición Celulósico:</b> 300 °C (572 °F) donde madera y hojarasca arden espontáneamente.</li>
-                      <li><b>Regla 30-30-30:</b> Emergencia crítica cuando coinciden &gt;30°C, &gt;30 km/h y &lt;30% HR.</li>
-                      <li><b>Curva Térmica:</b> Escalamiento a 300°C-850°C en flashover y 1.200°C+ en fuego de copas.</li>
-                      <li><b>Demanda de Agua:</b> Cálculo científico de L/min de ataque por MW radiativo (FRP).</li>
-                    </ul>
-                  </div>
-
-                  <div className="rounded border border-border/60 bg-background/50 p-3 space-y-1">
-                    <b className="font-mono text-emerald-400 flex items-center gap-1">
-                      <Leaf className="h-4 w-4" /> 2. Botánica Pirogénica de los 11 Municipios
-                    </b>
-                    <ul className="list-disc pl-4 text-muted-foreground space-y-1 text-[11px]">
-                      <li><b>Pastizales y Matorrales (90% sup. quemada):</b> Ichu (<i>Stipa ichu</i>, 1.4x), Thola (1.35x), Chacatea.</li>
-                      <li><b>Introducidas Inflamables:</b> Eucalipto (1.6x, pavesas voladoras), Pino (1.5x, pinocha de 1.200°C).</li>
-                      <li><b>Nativas Vulnerables (Protegidas):</b> Bosques relictos de Kewiña (<i>Polylepis</i>), Kiswara, Molle.</li>
-                      <li><b>Transición Trópico:</b> Chume seco de chaqueo en Villa Tunari y Colomi.</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-              <TreePine className="h-10 w-10 text-emerald-400 shrink-0" />
-            </div>
-          </Panel>
-
-          {/* PILAR 4: RELEVANCIA */}
-          <Panel className="border-l-4 border-l-blue-500/80">
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="rounded bg-blue-500/20 px-2 py-0.5 font-mono text-xs font-bold text-blue-400">
-                    PILAR 4
-                  </span>
-                  <h2 className="font-mono text-lg font-bold text-foreground">
-                    RELEVANCIA ESPACIAL: Harmonization of MODIS and VIIRS Hot Spots
-                  </h2>
-                </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Respondemos directamente al desafío oficial de la NASA mediante un algoritmo de fusión espaciotemporal multiespectral:
-                </p>
-
-                <div className="grid sm:grid-cols-3 gap-2 font-mono text-xs pt-1">
-                  <div className="rounded border border-amber-500/30 bg-amber-500/10 p-2.5">
-                    <span className="font-bold text-amber-500">MODIS (Terra/Aqua)</span>
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      Resolución espacial 1.000m (Banda 4µm). Récord histórico continuo de 20+ años. Base climatológica de series temporales.
-                    </p>
-                  </div>
-                  <div className="rounded border border-orange-500/30 bg-orange-500/10 p-2.5">
-                    <span className="font-bold text-orange-500">VIIRS (SNPP / NOAA-20)</span>
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      Resolución espacial 375m (I-Band). Detección temprana de focos pequeños y delimitación nítida del perímetro del incendio.
-                    </p>
-                  </div>
-                  <div className="rounded border border-primary/40 bg-primary/10 p-2.5 glow-primary">
-                    <span className="font-bold text-primary">Algoritmo de Fusión CENTINELA</span>
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      Ventana &lt;600m y &lt;2h. Reubicación del centroide a 375m, elevación de confianza a &gt;90% y reducción de falsas alarmas a &lt;1%.
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <Satellite className="h-10 w-10 text-blue-400 shrink-0" />
-            </div>
-          </Panel>
-
-          {/* PILAR 5: ARQUITECTURA DE SOFTWARE Y GOBERNANZA */}
-          <Panel className="border-l-4 border-l-purple-500/80">
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="rounded bg-purple-500/20 px-2 py-0.5 font-mono text-xs font-bold text-purple-400">
-                    PILAR 5
-                  </span>
-                  <h2 className="font-mono text-lg font-bold text-foreground">
-                    ARQUITECTURA DE SOFTWARE B2G: Clusterización GPU WebGL y Auditoría SHA-256
-                  </h2>
-                </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Sistema de alta disponibilidad optimizado para salas de comando y brigadistas en terreno, tolerante a caídas de red:
-                </p>
-
-                <div className="grid sm:grid-cols-3 gap-2 font-mono text-xs pt-1">
-                  <div className="rounded border border-border/60 bg-background/50 p-2">
-                    <span className="font-bold text-primary">Sellado Criptográfico SHA-256</span>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      Cada foco y reporte táctico se sella con un hash inmutable para auditoría legal post-incendio.
-                    </p>
-                  </div>
-                  <div className="rounded border border-border/60 bg-background/50 p-2">
-                    <span className="font-bold text-fire">Motor GPU WebGL a 60 FPS</span>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      Soporta más de 63.500+ anomalías térmicas simultáneas en Leaflet sin degradación de rendimiento.
-                    </p>
-                  </div>
-                  <div className="rounded border border-border/60 bg-background/50 p-2">
-                    <span className="font-bold text-success">100% Pruebas Unitarias</span>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      Suite en Vitest con validación matemática de la física del fuego, distancias Haversine y armonización.
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <Award className="h-10 w-10 text-purple-400 shrink-0" />
-            </div>
-          </Panel>
-        </div>
-
-        {/* ======================================================== */}
-        {/* MATRIZ DE LOS 11 NODOS MUNICIPALES DEL PARQUE TUNARI     */}
-        {/* ======================================================== */}
-        <Panel title="Matriz de Combustibles y Logística de los 11 Municipios del Tunari">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs font-mono border-collapse">
-              <thead>
-                <tr className="border-b border-border bg-secondary/30 text-muted-foreground text-[10px] uppercase">
-                  <th className="p-2">Municipio</th>
-                  <th className="p-2">Coordenadas</th>
-                  <th className="p-2">Combustible Predominante</th>
-                  <th className="p-2">Factor Riesgo</th>
-                  <th className="p-2">Punto de Cisterna GAMC</th>
-                  <th className="p-2">Capacidad</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/30">
-                {NODES.map((n) => (
-                  <tr key={n.id} className="hover:bg-secondary/20 transition-colors">
-                    <td className="p-2 font-bold text-foreground">{n.name}</td>
-                    <td className="p-2 text-muted-foreground text-[11px]">
-                      {n.center[0].toFixed(3)}, {n.center[1].toFixed(3)}
-                    </td>
-                    <td className="p-2 text-primary font-semibold">{n.botany.fuelModel}</td>
-                    <td className="p-2 text-fire font-bold">{n.botany.overallMultiplier}x</td>
-                    <td className="p-2 text-muted-foreground">{n.cisternPoint.name}</td>
-                    <td className="p-2 font-bold text-success">{n.cisternPoint.capacityLiters.toLocaleString()} L</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            ))}
           </div>
         </Panel>
 
-        {/* Botón de Retorno al Centro de Mando */}
-        <div className="flex justify-center pt-4">
-          <Link
-            to="/dashboard"
-            className="flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-mono text-sm font-bold uppercase text-primary-foreground hover:bg-primary/90 transition-colors shadow-lg glow-primary"
-          >
-            <Compass className="h-4 w-4" /> Ingresar al Centro de Mando Táctico (/dashboard)
-          </Link>
-        </div>
+        {/* Motor de Armonización */}
+        <Panel title="El Corazón del Desafío: Motor de Armonización MODIS + VIIRS">
+          <div className="space-y-3 text-sm">
+            <p className="text-slate-300">
+              El reto oficial de la NASA consiste en resolver la disparidad espacial y temporal entre MODIS (1km) y VIIRS
+              (375m). En <b>CENTINELA</b> implementamos un motor de correspondencia determinístico:
+            </p>
+            <div className="grid gap-3 sm:grid-cols-3 font-mono text-xs">
+              <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-3">
+                <span className="font-bold text-amber-400">1. MODIS (Terra/Aqua)</span>
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Resolución 1000m. Robusta serie histórica de más de 20 años. Excelente calibración radiométrica global.
+                </p>
+              </div>
+              <div className="rounded-xl border border-orange-500/30 bg-orange-950/20 p-3">
+                <span className="font-bold text-orange-400">2. VIIRS (SNPP / NOAA-20)</span>
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Resolución 375m en banda I. Máxima sensibilidad a conatos tempranos y delineación nítida del frente de fuego.
+                </p>
+              </div>
+              <div className="rounded-xl border border-cyan-400/40 bg-cyan-950/40 p-3 shadow-[0_0_16px_rgba(0,229,255,0.2)]">
+                <span className="font-bold text-cyan-300">3. Foco Armonizado</span>
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Intersección espacial &le; 1.5 km y temporal &le; 12 h. Centroide refinado a 375m con certeza superior al 95%.
+                </p>
+              </div>
+            </div>
+          </div>
+        </Panel>
 
-        <footer className="text-center text-xs text-muted-foreground pt-4 border-t border-border/40">
-          CENTINELA · Sistema Táctico Municipal de Alerta Temprana · Gobierno Autónomo Municipal de Cochabamba (GAMC) · NASA Space Apps 2026
+        {/* Hoja de Ruta */}
+        <Panel title="Hoja de Ruta de Desarrollo">
+          <ol className="space-y-2.5">
+            {plan.map(([d, f, t]) => (
+              <li
+                key={d}
+                className="grid grid-cols-[120px_1fr] gap-3 border-l-2 border-cyan-400/40 pl-3.5 text-xs sm:grid-cols-[140px_180px_1fr] items-center"
+              >
+                <span className="font-mono text-cyan-400 font-bold">{d}</span>
+                <b className="text-white font-mono">{f}</b>
+                <span className="col-span-2 text-slate-400 sm:col-span-1">{t}</span>
+              </li>
+            ))}
+          </ol>
+        </Panel>
+
+        <footer className="text-center font-mono text-xs text-slate-500 pt-4">
+          NASA Space Apps Challenge · Operación CENTINELA · Cochabamba, Bolivia
         </footer>
       </div>
     </div>
