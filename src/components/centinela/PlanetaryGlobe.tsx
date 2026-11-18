@@ -702,43 +702,6 @@ export function PlanetaryGlobe({
       />
 
       {/* =========================================================
-          TOP HUD OVERLAY: DYNAMIC REAL-TIME TELEMETRY
-         ========================================================= */}
-      <div className="pointer-events-none absolute top-3 left-4 right-4 z-20 flex flex-wrap items-center justify-between gap-2">
-        {/* Left: Altitude & Stage */}
-        <div className="flex items-center gap-2.5 rounded-2xl border border-cyan-500/30 bg-slate-950/80 px-4 py-2 backdrop-blur-xl shadow-[0_0_20px_rgba(0,229,255,0.25)]">
-          <div className="relative flex h-3 w-3 items-center justify-center">
-            <span className="absolute h-full w-full rounded-full bg-cyan-400 opacity-75 animate-ping" />
-            <span className="relative h-2 w-2 rounded-full bg-cyan-400" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 font-mono text-xs font-black tracking-widest text-white">
-              <span>ALTITUD: {currentAltitudeKm.toLocaleString()} KM</span>
-              <span className="rounded bg-cyan-500/20 px-1.5 py-0.5 text-[9px] text-cyan-300">
-                {(diveProgress * 100).toFixed(0)}% DIVE
-              </span>
-            </div>
-            <div className="font-mono text-[9px] uppercase tracking-wider text-cyan-400">
-              {altitudeStage}
-            </div>
-          </div>
-        </div>
-
-        {/* Right: Target Indicator */}
-        <div className="flex items-center gap-2 rounded-2xl border border-red-500/30 bg-slate-950/80 px-4 py-2 backdrop-blur-xl shadow-[0_0_20px_rgba(255,51,75,0.25)]">
-          <Flame className="h-4 w-4 text-red-400 animate-pulse" />
-          <div className="text-right">
-            <div className="font-mono text-xs font-black tracking-wider text-red-300">
-              OBJETIVO: BOLIVIA · {incidents.length} FOCOS NASA
-            </div>
-            <div className="font-mono text-[9px] text-slate-400">
-              COCHABAMBA (-17.389°, -66.156°) · PARQUE TUNARI
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* =========================================================
           CENTER FLOATING TARGET PIN (VISIBLE DURING DESCENT)
          ========================================================= */}
       {diveProgress > 0.45 && (
@@ -845,19 +808,24 @@ export function PlanetaryGlobe({
           </button>
         </div>
 
-        {/* Interactive Scrub Slider */}
-        <div className="flex w-full max-w-md items-center gap-2 px-4">
-          <span className="font-mono text-[9px] text-slate-400">ÓRBITA</span>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.005"
-            value={diveProgress}
-            onChange={(e) => setDiveProgress(parseFloat(e.target.value))}
-            className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-slate-800 accent-cyan-400 transition-all hover:bg-slate-700"
-          />
-          <span className="font-mono text-[9px] text-cyan-400">TUNARI</span>
+        {/* Interactive Scrub Slider with Minimal Altitude Telemetry */}
+        <div className="flex flex-col items-center gap-1 w-full max-w-md px-4">
+          <div className="font-mono text-[9px] uppercase tracking-widest text-cyan-400 drop-shadow-[0_0_8px_rgba(0,229,255,0.4)]">
+            ALTITUD: <span className="font-black text-white">{currentAltitudeKm.toLocaleString()} KM</span> · {altitudeStage}
+          </div>
+          <div className="flex w-full items-center gap-2">
+            <span className="font-mono text-[9px] text-slate-500">800KM</span>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.005"
+              value={diveProgress}
+              onChange={(e) => setDiveProgress(parseFloat(e.target.value))}
+              className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-slate-800 accent-cyan-400 transition-all hover:bg-slate-700"
+            />
+            <span className="font-mono text-[9px] text-cyan-400">TUNARI</span>
+          </div>
         </div>
       </div>
     </div>
