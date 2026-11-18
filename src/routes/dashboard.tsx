@@ -42,6 +42,8 @@ import { NavMenu, Panel, StatusBadge } from "@/components/centinela/Shell";
 import { RiskGauge } from "@/components/centinela/RiskGauge";
 import { TacticalMap, type Layers } from "@/components/centinela/TacticalMap";
 import { PlanetaryGlobe } from "@/components/centinela/PlanetaryGlobe";
+import { RadarWidget } from "@/components/centinela/RadarWidget";
+import { FleetWidget } from "@/components/centinela/FleetWidget";
 import { NODES, fmtDate, ignitionRisk } from "@/lib/centinela-data";
 import { useNasa } from "@/hooks/use-nasa";
 import { NasaControls } from "@/components/centinela/NasaControls";
@@ -423,6 +425,7 @@ function Dashboard() {
                   incidents={filteredIncidents}
                   selectedId={selected?.id}
                   onSelect={setSelectedId}
+                  onEnterTacticalMap={() => setViewMode("map")}
                   className="w-full h-full"
                 />
               ) : (
@@ -540,7 +543,17 @@ function Dashboard() {
               </div>
             </div>
 
-            {/* 2. Four Circular Radar Rings (Like the 4 rings in Image 3) */}
+            {/* 2. System Scan Circular Radar (from Fantik Nova Concept) */}
+            <RadarWidget
+              incidents={filteredIncidents}
+              selectedId={selected?.id}
+              onSelect={setSelectedId}
+            />
+
+            {/* 3. Fleet Satellites Status Card */}
+            <FleetWidget />
+
+            {/* 4. Four Circular Radar Rings (Like the 4 rings in Image 3) */}
             <div className="glass rounded-2xl p-4 border border-cyan-500/20 shadow-[0_4px_24px_rgba(0,0,0,0.6)] space-y-2">
               <div className="flex items-center justify-between border-b border-cyan-500/10 pb-2">
                 <span className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-cyan-300">

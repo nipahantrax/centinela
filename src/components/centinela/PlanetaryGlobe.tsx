@@ -1,13 +1,29 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import * as THREE from "three";
 import { type Incident } from "@/lib/centinela-data";
-import { Sparkles, Compass, Eye, RotateCw, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
+import {
+  Sparkles,
+  Compass,
+  RotateCw,
+  Play,
+  Pause,
+  MapPin,
+  Map as MapIcon,
+  ChevronDown,
+  ChevronUp,
+  Layers,
+  Flame,
+  Radio,
+  Maximize2,
+} from "lucide-react";
 
 interface Props {
   incidents: Incident[];
   selectedId?: string | undefined;
   onSelect?: ((id: string) => void) | undefined;
   className?: string | undefined;
+  onEnterTacticalMap?: (() => void) | undefined;
+  initialProgress?: number | undefined;
 }
 
 // Convert latitude & longitude to 3D sphere coordinate
@@ -20,22 +36,65 @@ function latLngToVec3(lat: number, lng: number, radius: number): THREE.Vector3 {
   return new THREE.Vector3(x, y, z);
 }
 
-// Create a high-tech procedural Earth texture on an HTML5 canvas
+// Bolivia international border coordinates (simplified polygon for WebGL 3D line)
+const BOLIVIA_BORDER: [number, number][] = [
+  [-9.67, -65.37],
+  [-10.82, -65.35],
+  [-11.95, -65.04],
+  [-12.48, -64.28],
+  [-13.48, -61.85],
+  [-14.00, -60.45],
+  [-16.32, -58.98],
+  [-17.58, -57.75],
+  [-19.00, -57.72],
+  [-20.15, -58.17],
+  [-20.45, -62.15],
+  [-22.00, -62.68],
+  [-22.88, -64.33],
+  [-22.18, -65.60],
+  [-22.82, -67.50],
+  [-21.80, -68.18],
+  [-20.90, -68.45],
+  [-19.18, -68.68],
+  [-18.15, -69.05],
+  [-17.28, -69.45],
+  [-16.15, -69.10],
+  [-15.25, -69.25],
+  [-14.05, -68.95],
+  [-12.50, -68.65],
+  [-11.02, -68.75],
+  [-9.67, -65.37],
+];
+
+// Bolivian departments with coordinates and danger rating
+const DEPARTMENTS = [
+  { id: "cbba", name: "Cochabamba", lat: -17.389, lng: -66.156, risk: "CRÍTICO", color: 0xff334b },
+  { id: "scz", name: "Santa Cruz", lat: -17.783, lng: -63.182, risk: "ALTO", color: 0xff9900 },
+  { id: "beni", name: "Beni", lat: -14.833, lng: -64.900, risk: "ALTO", color: 0xff9900 },
+  { id: "lpz", name: "La Paz", lat: -16.500, lng: -68.150, risk: "MEDIO", color: 0x00e5ff },
+  { id: "pando", name: "Pando", lat: -11.020, lng: -68.750, risk: "BAJO", color: 0x10b981 },
+  { id: "oruro", name: "Oruro", lat: -17.964, lng: -67.114, risk: "MEDIO", color: 0x00e5ff },
+  { id: "potosi", name: "Potosí", lat: -19.583, lng: -65.753, risk: "BAJO", color: 0x10b981 },
+  { id: "chuq", name: "Chuquisaca", lat: -19.043, lng: -65.259, risk: "MEDIO", color: 0xf59e0b },
+  { id: "tarija", name: "Tarija", lat: -21.535, lng: -64.734, risk: "ALTO", color: 0xff5252 },
+];
+
+// Create procedural high-definition Earth texture on HTML5 canvas
 function createEarthCanvasTexture(): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");
   canvas.width = 2048;
   canvas.height = 1024;
   const ctx = canvas.getContext("2d")!;
 
-  // Deep ocean gradient
+  // Deep space ocean gradient
   const oceanGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-  oceanGrad.addColorStop(0, "#051329");
-  oceanGrad.addColorStop(0.5, "#081d3d");
-  oceanGrad.addColorStop(1, "#040e20");
+  oceanGrad.addColorStop(0, "#020b18");
+  oceanGrad.addColorStop(0.5, "#061833");
+  oceanGrad.addColorStop(1, "#020814");
   ctx.fillStyle = oceanGrad;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Digital latitude & longitude grid lines (HUD style)
+  // Digital latitude & longitude grid lines (HUD graticule)
   ctx.strokeStyle = "rgba(0, 229, 255, 0.08)";
   ctx.lineWidth = 1;
   for (let lat = 0; lat <= canvas.height; lat += 64) {
@@ -51,12 +110,11 @@ function createEarthCanvasTexture(): THREE.CanvasTexture {
     ctx.stroke();
   }
 
-  // Draw simplified landmasses with high-tech contours
-  ctx.fillStyle = "rgba(16, 185, 129, 0.28)"; // Tactical Emerald continent base
+  // Draw continents with high-tech contours
+  ctx.fillStyle = "rgba(16, 185, 129, 0.28)"; // Tactical Emerald base
   ctx.strokeStyle = "#00e5ff"; // Glowing cyan coastlines
   ctx.lineWidth = 1.5;
 
-  // Approximate major continental shapes (normalized coordinates [x, y] on equirectangular projection)
   const continents: [number, number][][] = [
     // South America (Focus area)
     [
@@ -98,24 +156,27 @@ function createEarthCanvasTexture(): THREE.CanvasTexture {
     ctx.stroke();
   });
 
-  // Highlight Bolivia / Tunari region in South America
-  const boliviaX = 0.315 * canvas.width;
-  const boliviaY = 0.68 * canvas.height;
-  const boliviaGrad = ctx.createRadialGradient(boliviaX, boliviaY, 5, boliviaX, boliviaY, 40);
-  boliviaGrad.addColorStop(0, "rgba(255, 51, 75, 0.8)");
-  boliviaGrad.addColorStop(0.4, "rgba(255, 153, 0, 0.4)");
-  boliviaGrad.addColorStop(1, "rgba(0, 229, 255, 0)");
-  ctx.fillStyle = boliviaGrad;
+  // Highlight Bolivia's exact polygon contour on the texture
   ctx.beginPath();
-  ctx.arc(boliviaX, boliviaY, 40, 0, Math.PI * 2);
+  BOLIVIA_BORDER.forEach(([lat, lng], idx) => {
+    const x = ((lng + 180) / 360) * canvas.width;
+    const y = ((90 - lat) / 180) * canvas.height;
+    if (idx === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.closePath();
+  ctx.fillStyle = "rgba(0, 229, 255, 0.25)";
   ctx.fill();
+  ctx.strokeStyle = "#00f0ff";
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
 
-  // Tech dots for major world cities
-  ctx.fillStyle = "#ffffff";
-  for (let i = 0; i < 200; i++) {
+  // Glowing city lights on dark side
+  ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+  for (let i = 0; i < 300; i++) {
     const rx = Math.random() * canvas.width;
     const ry = Math.random() * canvas.height;
-    ctx.fillRect(rx, ry, 1.5, 1.5);
+    ctx.fillRect(rx, ry, 1.2, 1.2);
   }
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -124,15 +185,65 @@ function createEarthCanvasTexture(): THREE.CanvasTexture {
   return texture;
 }
 
-export function PlanetaryGlobe({ incidents, selectedId, onSelect, className = "" }: Props) {
+export function PlanetaryGlobe({
+  incidents,
+  selectedId,
+  onSelect,
+  className = "",
+  onEnterTacticalMap,
+  initialProgress = 0,
+}: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
+  const [diveProgress, setDiveProgress] = useState(initialProgress);
+  const [isPlayingDive, setIsPlayingDive] = useState(false);
   const [autoRotate, setAutoRotate] = useState(true);
-  const [activeFocoCount, setActiveFocoCount] = useState(incidents.length);
 
+  // References for Three.js state that needs updates inside animation loop
+  const progressRef = useRef(initialProgress);
+  progressRef.current = diveProgress;
+
+  const autoRotateRef = useRef(autoRotate);
+  autoRotateRef.current = autoRotate;
+
+  // Cinematic Auto-Dive Playback
   useEffect(() => {
-    setActiveFocoCount(incidents.length);
-  }, [incidents]);
+    if (!isPlayingDive) return;
 
+    let startTime = performance.now();
+    const durationMs = 3800; // 3.8s cinematic fly-through
+    const startProgress = progressRef.current;
+    const targetProgress = startProgress >= 0.95 ? 0 : 1;
+
+    let animId: number;
+
+    const tick = (now: number) => {
+      const elapsed = now - startTime;
+      const t = Math.min(elapsed / durationMs, 1);
+      // Smooth cubic easing
+      const eased = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      const current = startProgress + (targetProgress - startProgress) * eased;
+
+      setDiveProgress(current);
+
+      if (t < 1) {
+        animId = requestAnimationFrame(tick);
+      } else {
+        setIsPlayingDive(false);
+      }
+    };
+
+    animId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animId);
+  }, [isPlayingDive]);
+
+  // Handle Wheel Scroll on Globe Canvas to scrub the dive directly
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY * 0.0012;
+    setDiveProgress((prev) => Math.max(0, Math.min(1, prev + delta)));
+  }, []);
+
+  // Main Three.js Scene Setup & Render Loop
   useEffect(() => {
     const container = mountRef.current;
     if (!container) return;
@@ -140,10 +251,9 @@ export function PlanetaryGlobe({ incidents, selectedId, onSelect, className = ""
     const width = container.clientWidth;
     const height = container.clientHeight;
 
-    // 1. Scene, Camera, Renderer
+    // 1. Scene, Camera, WebGL Renderer
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 1000);
-    camera.position.set(0, 3, 24);
+    const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 1000);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(width, height);
@@ -152,62 +262,114 @@ export function PlanetaryGlobe({ incidents, selectedId, onSelect, className = ""
 
     // 2. Starfield Particle Background
     const starsGeo = new THREE.BufferGeometry();
-    const starCount = 1200;
+    const starCount = 1400;
     const starPositions = new Float32Array(starCount * 3);
     for (let i = 0; i < starCount * 3; i += 3) {
-      starPositions[i] = (Math.random() - 0.5) * 160;
-      starPositions[i + 1] = (Math.random() - 0.5) * 160;
-      starPositions[i + 2] = (Math.random() - 0.5) * 160;
+      starPositions[i] = (Math.random() - 0.5) * 180;
+      starPositions[i + 1] = (Math.random() - 0.5) * 180;
+      starPositions[i + 2] = (Math.random() - 0.5) * 180;
     }
     starsGeo.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
     const starsMat = new THREE.PointsMaterial({
       color: 0x38bdf8,
-      size: 0.6,
+      size: 0.65,
       transparent: true,
-      opacity: 0.65,
+      opacity: 0.7,
     });
     const stars = new THREE.Points(starsGeo, starsMat);
     scene.add(stars);
 
-    // 3. Main 3D Earth Globe Mesh
+    // 3. Main 3D Earth Globe
     const globeRadius = 7.5;
+    const earthGroup = new THREE.Group();
+    scene.add(earthGroup);
+
     const earthGeo = new THREE.SphereGeometry(globeRadius, 64, 64);
     const earthTexture = createEarthCanvasTexture();
     const earthMat = new THREE.MeshPhongMaterial({
       map: earthTexture,
-      bumpScale: 0.1,
+      bumpScale: 0.12,
       specular: new THREE.Color(0x00e5ff),
-      shininess: 25,
+      shininess: 30,
       emissive: new THREE.Color(0x040e24),
-      emissiveIntensity: 0.4,
+      emissiveIntensity: 0.45,
     });
     const earthMesh = new THREE.Mesh(earthGeo, earthMat);
-    scene.add(earthMesh);
+    earthGroup.add(earthMesh);
 
-    // Rotate Earth initially so South America / Bolivia faces the camera
-    earthMesh.rotation.y = 1.15;
-    earthMesh.rotation.x = 0.25;
-
-    // 4. Atmospheric Glowing Outer Halo (Fresnel effect)
+    // 4. Glowing Atmosphere Rim (Fresnel outer shell)
     const glowGeo = new THREE.SphereGeometry(globeRadius * 1.045, 64, 64);
     const glowMat = new THREE.MeshBasicMaterial({
       color: 0x00e5ff,
       transparent: true,
-      opacity: 0.18,
+      opacity: 0.22,
       side: THREE.BackSide,
     });
     const glowMesh = new THREE.Mesh(glowGeo, glowMat);
-    scene.add(glowMesh);
+    earthGroup.add(glowMesh);
 
-    // 5. Orbital Satellite Trajectory Rings (MODIS & VIIRS constelations)
+    // Inner atmospheric haze shell (intensifies during descent t=0.4..0.8)
+    const hazeGeo = new THREE.SphereGeometry(globeRadius * 1.018, 64, 64);
+    const hazeMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.08,
+      side: THREE.DoubleSide,
+    });
+    const hazeMesh = new THREE.Mesh(hazeGeo, hazeMat);
+    earthGroup.add(hazeMesh);
+
+    // 5. 3D Glowing Vector Boundary for BOLIVIA
+    const borderPoints: THREE.Vector3[] = BOLIVIA_BORDER.map(([lat, lng]) =>
+      latLngToVec3(lat, lng, globeRadius * 1.004)
+    );
+    const borderGeo = new THREE.BufferGeometry().setFromPoints(borderPoints);
+    const borderMat = new THREE.LineBasicMaterial({
+      color: 0x00f0ff,
+      linewidth: 2,
+      transparent: true,
+      opacity: 0.95,
+    });
+    const boliviaBorderLine = new THREE.LineLoop(borderGeo, borderMat);
+    earthGroup.add(boliviaBorderLine);
+
+    // 6. Department Nodes on the 3D Globe
+    const deptGroup = new THREE.Group();
+    earthGroup.add(deptGroup);
+
+    DEPARTMENTS.forEach((dept) => {
+      const pos = latLngToVec3(dept.lat, dept.lng, globeRadius * 1.003);
+
+      // Node ring
+      const ringGeo = new THREE.RingGeometry(0.12, 0.22, 24);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: dept.color,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.85,
+      });
+      const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+      ringMesh.position.copy(pos);
+      ringMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), pos.clone().normalize());
+      deptGroup.add(ringMesh);
+
+      // Node dot
+      const dotGeo = new THREE.SphereGeometry(0.06, 16, 16);
+      const dotMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const dotMesh = new THREE.Mesh(dotGeo, dotMat);
+      dotMesh.position.copy(pos);
+      deptGroup.add(dotMesh);
+    });
+
+    // 7. 4 Orbital NASA Satellite Paths & Models (TERRA, AQUA, SUOMI-NPP, NOAA-20)
     const ringGroup = new THREE.Group();
     scene.add(ringGroup);
 
     const orbitConfigs = [
-      { radius: 10.2, tiltX: 0.45, tiltZ: 0.2, color: 0x00f0ff, speed: 0.008, satName: "TERRA (MODIS)" },
-      { radius: 11.5, tiltX: -0.65, tiltZ: -0.35, color: 0x38bdf8, speed: 0.006, satName: "AQUA (MODIS)" },
-      { radius: 12.8, tiltX: 0.85, tiltZ: 0.75, color: 0x10b981, speed: 0.01, satName: "SUOMI-NPP (VIIRS)" },
-      { radius: 14.0, tiltX: -0.3, tiltZ: 0.9, color: 0xf59e0b, speed: 0.007, satName: "NOAA-20 (VIIRS)" },
+      { radius: 10.4, tiltX: 0.45, tiltZ: 0.2, color: 0x00f0ff, speed: 0.009, satName: "TERRA (MODIS)" },
+      { radius: 11.6, tiltX: -0.65, tiltZ: -0.35, color: 0x38bdf8, speed: 0.007, satName: "AQUA (MODIS)" },
+      { radius: 12.8, tiltX: 0.85, tiltZ: 0.75, color: 0x10b981, speed: 0.011, satName: "SUOMI-NPP (VIIRS)" },
+      { radius: 14.2, tiltX: -0.3, tiltZ: 0.9, color: 0xf59e0b, speed: 0.008, satName: "NOAA-20 (VIIRS)" },
     ];
 
     const satellites: { mesh: THREE.Mesh; angle: number; speed: number; radius: number; group: THREE.Group }[] = [];
@@ -250,15 +412,17 @@ export function PlanetaryGlobe({ incidents, selectedId, onSelect, className = ""
       });
     });
 
-    // 6. Glowing Fire Flare Beacons on the Globe (Incident Points)
+    // 8. 3D Laser Fire Pillars on Active Thermal Hotspots
     const fireGroup = new THREE.Group();
-    earthMesh.add(fireGroup); // Attach to earthMesh so they rotate with the planet
+    earthGroup.add(fireGroup);
+
+    const fireRings: { mesh: THREE.Mesh; baseScale: number }[] = [];
 
     incidents.forEach((inc) => {
       const pos = latLngToVec3(inc.lat, inc.lng, globeRadius);
-      
-      // Radiant pillar beam shooting out from earth
-      const beamHeight = 1.2 + (inc.frp ? Math.min(inc.frp / 20, 2.5) : 0.8);
+
+      // Vertical radiant light beam shooting out from earth
+      const beamHeight = 1.4 + (inc.frp ? Math.min(inc.frp / 18, 3.0) : 0.9);
       const beamGeo = new THREE.CylinderGeometry(0.04, 0.12, beamHeight, 8);
       const isHarmonized = inc.source === "MODIS+VIIRS armonizado";
       const beamColor = isHarmonized ? 0x00f0ff : 0xff334b;
@@ -266,59 +430,73 @@ export function PlanetaryGlobe({ incidents, selectedId, onSelect, className = ""
       const beamMat = new THREE.MeshBasicMaterial({
         color: beamColor,
         transparent: true,
-        opacity: 0.85,
+        opacity: 0.9,
       });
       const beamMesh = new THREE.Mesh(beamGeo, beamMat);
 
-      // Orient cylinder outward along normal
       beamMesh.position.copy(pos.clone().multiplyScalar(1 + (beamHeight / 2) / globeRadius));
       beamMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), pos.clone().normalize());
       fireGroup.add(beamMesh);
 
-      // Glowing flare ring on surface
-      const flareGeo = new THREE.RingGeometry(0.1, 0.35, 16);
+      // Pulsing thermal shockwave ring on surface
+      const flareGeo = new THREE.RingGeometry(0.08, 0.32, 20);
       const flareMat = new THREE.MeshBasicMaterial({
         color: beamColor,
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 0.9,
+        opacity: 0.85,
       });
       const flareMesh = new THREE.Mesh(flareGeo, flareMat);
-      flareMesh.position.copy(pos.clone().multiplyScalar(1.01));
+      flareMesh.position.copy(pos.clone().multiplyScalar(1.006));
       flareMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), pos.clone().normalize());
       fireGroup.add(flareMesh);
+
+      fireRings.push({ mesh: flareMesh, baseScale: 1.0 });
     });
 
-    // 7. Ambient & Directional Space Lighting
-    const ambientLight = new THREE.AmbientLight(0x0f274a, 1.2);
+    // 9. Ambient & Directional Lighting
+    const ambientLight = new THREE.AmbientLight(0x0a1f3d, 1.4);
     scene.add(ambientLight);
 
-    const sunLight = new THREE.DirectionalLight(0xffffff, 2.2);
-    sunLight.position.set(20, 12, 15);
+    const sunLight = new THREE.DirectionalLight(0xffffff, 2.5);
+    sunLight.position.set(22, 14, 16);
     scene.add(sunLight);
 
-    const blueBackLight = new THREE.PointLight(0x00e5ff, 3.5, 50);
-    blueBackLight.position.set(-15, -10, -10);
+    const blueBackLight = new THREE.PointLight(0x00e5ff, 4.0, 60);
+    blueBackLight.position.set(-18, -12, -12);
     scene.add(blueBackLight);
 
-    // 8. Interactive Mouse Drag & Rotation
+    // 10. Coordinates of Bolivia and Camera Targets
+    // Bolivia center: -16.8 lat, -65.0 lon
+    const boliviaVec = latLngToVec3(-16.8, -65.0, globeRadius);
+
+    // Camera positions:
+    // Orbit space: (0, 3, 24)
+    // Bolivia tactical close-up: Hovering radially 1.7 units above Bolivia (radius 7.5 + 1.7 = 9.2)
+    const spaceCamPos = new THREE.Vector3(0, 3, 24);
+    const boliviaCamPos = boliviaVec.clone().normalize().multiplyScalar(9.2);
+
+    const spaceLookAt = new THREE.Vector3(0, 0, 0);
+    const boliviaLookAt = boliviaVec.clone();
+
+    // 11. Mouse Drag to Orbit freely at any zoom level
     let isDragging = false;
-    let previousMousePosition = { x: 0, y: 0 };
+    let prevMouse = { x: 0, y: 0 };
 
     const onMouseDown = (e: MouseEvent) => {
       isDragging = true;
-      previousMousePosition = { x: e.clientX, y: e.clientY };
+      prevMouse = { x: e.clientX, y: e.clientY };
     };
 
     const onMouseMove = (e: MouseEvent) => {
       if (!isDragging) return;
-      const deltaX = e.clientX - previousMousePosition.x;
-      const deltaY = e.clientY - previousMousePosition.y;
+      const dx = e.clientX - prevMouse.x;
+      const dy = e.clientY - prevMouse.y;
 
-      earthMesh.rotation.y += deltaX * 0.005;
-      earthMesh.rotation.x += deltaY * 0.005;
+      earthGroup.rotation.y += dx * 0.005;
+      earthGroup.rotation.x += dy * 0.005;
 
-      previousMousePosition = { x: e.clientX, y: e.clientY };
+      prevMouse = { x: e.clientX, y: e.clientY };
     };
 
     const onMouseUp = () => {
@@ -330,20 +508,46 @@ export function PlanetaryGlobe({ incidents, selectedId, onSelect, className = ""
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
 
-    // 9. Animation Loop
+    // 12. Animation Loop with Camera Interpolation
     let animationFrameId: number;
     let clock = new THREE.Clock();
 
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
-      const delta = clock.getDelta();
+      const elapsed = clock.getElapsedTime();
+      const p = progressRef.current; // 0..1
 
-      // Slow auto rotation
-      if (autoRotate && !isDragging) {
-        earthMesh.rotation.y += 0.0018;
+      // Auto rotation in space when progress is low and not dragging
+      if (autoRotateRef.current && !isDragging && p < 0.1) {
+        earthGroup.rotation.y += 0.0016;
+      } else if (p >= 0.1 && !isDragging) {
+        // Smoothly orient Earth so Bolivia vector lines up straight with target
+        earthGroup.rotation.y = THREE.MathUtils.lerp(earthGroup.rotation.y, 0, 0.05);
+        earthGroup.rotation.x = THREE.MathUtils.lerp(earthGroup.rotation.x, 0, 0.05);
       }
 
-      // Animate satellites around their orbital paths
+      // Smooth camera interpolation based on dive progress
+      // Cubic easing for cinematic swoop
+      const ease = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+
+      camera.position.lerpVectors(spaceCamPos, boliviaCamPos, ease);
+      const currentLookAt = new THREE.Vector3().lerpVectors(spaceLookAt, boliviaLookAt, ease);
+      camera.lookAt(currentLookAt);
+
+      // Atmospheric haze opacity modulation
+      if (p > 0.25 && p < 0.75) {
+        hazeMat.opacity = THREE.MathUtils.lerp(0.08, 0.45, Math.sin((p - 0.25) * Math.PI * 2));
+      } else {
+        hazeMat.opacity = 0.08;
+      }
+
+      // Animate fire rings pulsing
+      const ringScale = 1 + Math.sin(elapsed * 4) * 0.25;
+      fireRings.forEach((r) => {
+        r.mesh.scale.set(ringScale, ringScale, ringScale);
+      });
+
+      // Animate satellites around their orbits
       satellites.forEach((sat) => {
         sat.angle += sat.speed;
         const x = Math.cos(sat.angle) * sat.radius;
@@ -352,14 +556,14 @@ export function PlanetaryGlobe({ incidents, selectedId, onSelect, className = ""
       });
 
       // Subtle starfield twinkling
-      stars.rotation.y += 0.0003;
+      stars.rotation.y += 0.0002;
 
       renderer.render(scene, camera);
     };
 
     animate();
 
-    // 10. Resize handler
+    // 13. Responsive Resize Handler
     const onResize = () => {
       if (!container) return;
       const w = container.clientWidth;
@@ -381,47 +585,195 @@ export function PlanetaryGlobe({ incidents, selectedId, onSelect, className = ""
       }
       renderer.dispose();
     };
-  }, [incidents, autoRotate]);
+  }, [incidents]);
+
+  // Altitude calculation for HUD display
+  // 0% -> 820 km (LEO Orbit)
+  // 35% -> 150 km (Termosfera)
+  // 70% -> 45 km (Estratosfera)
+  // 100% -> 4.5 km (Espacio Aéreo Táctico Bolivia)
+  const currentAltitudeKm = Math.round(
+    THREE.MathUtils.lerp(820, 4.5, diveProgress)
+  );
+
+  const altitudeStage =
+    diveProgress < 0.25
+      ? "ÓRBITA LEO GEOESTACIONARIA"
+      : diveProgress < 0.55
+      ? "INGRESO A LA TERMOSFERA"
+      : diveProgress < 0.85
+      ? "ESTRATOSFERA · ESPACIO AÉREO NACIONAL"
+      : "ESPACIO AÉREO TÁCTICO · BOLIVIA";
 
   return (
-    <div className={`relative w-full h-full overflow-hidden select-none ${className}`}>
+    <div
+      onWheel={handleWheel}
+      className={`relative w-full h-full overflow-hidden select-none bg-[#030712] ${className}`}
+    >
       {/* 3D WebGL Canvas Container */}
-      <div ref={mountRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
+      <div
+        ref={mountRef}
+        className="w-full h-full cursor-grab active:cursor-grabbing"
+      />
 
-      {/* Futuristic Target Pin over South America / Bolivia */}
-      <div className="pointer-events-none absolute top-10 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center">
-        <div className="flex items-center gap-2 rounded-full border border-cyan-400/50 bg-slate-950/80 px-4 py-1.5 font-mono text-xs font-bold text-cyan-300 backdrop-blur-xl shadow-[0_0_20px_rgba(0,229,255,0.4)]">
-          <span className="h-2 w-2 rounded-full bg-red-500 animate-ping" />
-          <span>OBJETIVO ORBITAL: COCHABAMBA · PARQUE TUNARI</span>
+      {/* =========================================================
+          TOP HUD OVERLAY: DYNAMIC ALTITUDE & MISSION READOUT
+         ========================================================= */}
+      <div className="pointer-events-none absolute top-3 left-4 right-4 z-20 flex flex-wrap items-center justify-between gap-2">
+        {/* Left: Altitude & Stage */}
+        <div className="flex items-center gap-2.5 rounded-2xl border border-cyan-500/30 bg-slate-950/80 px-4 py-2 backdrop-blur-xl shadow-[0_0_20px_rgba(0,229,255,0.2)]">
+          <div className="relative flex h-3 w-3 items-center justify-center">
+            <span className="absolute h-full w-full rounded-full bg-cyan-400 opacity-75 animate-ping" />
+            <span className="relative h-2 w-2 rounded-full bg-cyan-400" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 font-mono text-xs font-black tracking-widest text-white">
+              <span>ALTITUD: {currentAltitudeKm.toLocaleString()} KM</span>
+              <span className="rounded bg-cyan-500/20 px-1.5 py-0.5 text-[9px] text-cyan-300">
+                {(diveProgress * 100).toFixed(0)}% DIVE
+              </span>
+            </div>
+            <div className="font-mono text-[9px] uppercase tracking-wider text-cyan-400">
+              {altitudeStage}
+            </div>
+          </div>
         </div>
-        <div className="mt-1 font-mono text-[10px] text-slate-400 tracking-wider">
-          LAT: -17.389° · LON: -66.156° · ALT: 820 KM ORBIT
+
+        {/* Right: Target Indicator */}
+        <div className="flex items-center gap-2 rounded-2xl border border-red-500/30 bg-slate-950/80 px-4 py-2 backdrop-blur-xl shadow-[0_0_20px_rgba(255,51,75,0.25)]">
+          <Flame className="h-4 w-4 text-red-400 animate-pulse" />
+          <div className="text-right">
+            <div className="font-mono text-xs font-black tracking-wider text-red-300">
+              OBJETIVO: BOLIVIA · {incidents.length} FOCOS ACTIVOS
+            </div>
+            <div className="font-mono text-[9px] text-slate-400">
+              COCHABAMBA (-17.389°, -66.156°) · PARQUE TUNARI
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Telemetry Status Pills on Globe */}
-      <div className="pointer-events-none absolute bottom-4 left-4 z-20 flex items-center gap-2">
-        <div className="glass rounded-xl px-3 py-1.5 border border-cyan-500/30 font-mono text-[10px] text-cyan-200">
-          <span className="text-cyan-400 font-bold">4 CONSTELACIONES:</span> TERRA · AQUA · SUOMI-NPP · NOAA-20
+      {/* =========================================================
+          CENTER FLOATING TARGET PIN (VISIBLE DURING FLIGHT)
+         ========================================================= */}
+      {diveProgress > 0.45 && (
+        <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center animate-in fade-in zoom-in-75 duration-300">
+          <div className="relative flex h-14 w-14 items-center justify-center">
+            <div className="absolute h-full w-full rounded-full border border-cyan-400/60 animate-ping opacity-60" />
+            <div className="absolute h-10 w-10 rounded-full border border-dashed border-red-500/80 animate-spin-slow" />
+            <MapPin className="h-6 w-6 text-red-400 drop-shadow-[0_0_10px_#ff334b]" />
+          </div>
+          <div className="mt-1 flex items-center gap-1.5 rounded-full border border-red-500/50 bg-slate-950/90 px-3 py-1 font-mono text-[10px] font-bold text-red-200 backdrop-blur-md shadow-[0_0_15px_rgba(255,51,75,0.4)]">
+            <span className="h-1.5 w-1.5 rounded-full bg-red-400 animate-ping" />
+            <span>FRENTE ACTIVO TUNARI NORTE</span>
+          </div>
         </div>
-        <div className="glass rounded-xl px-3 py-1.5 border border-red-500/30 font-mono text-[10px] text-red-300">
-          <span className="font-bold text-red-400">{activeFocoCount}</span> FOCOS EN ÓRBITA
-        </div>
-      </div>
+      )}
 
-      {/* Globe Interaction HUD Controls */}
-      <div className="absolute bottom-4 right-4 z-20 flex items-center gap-1.5">
-        <button
-          onClick={() => setAutoRotate(!autoRotate)}
-          className={`flex items-center gap-1 rounded-xl border px-3 py-1.5 font-mono text-xs font-bold transition-all duration-200 ${
-            autoRotate
-              ? "border-cyan-400/60 bg-cyan-500/20 text-cyan-300 shadow-[0_0_12px_rgba(0,229,255,0.3)]"
-              : "border-slate-800 bg-slate-950/70 text-slate-400 hover:text-white"
-          }`}
-        >
-          <RotateCw className={`h-3.5 w-3.5 ${autoRotate ? "animate-spin" : ""}`} />
-          <span>{autoRotate ? "Auto-Giro ON" : "Auto-Giro OFF"}</span>
-        </button>
+      {/* =========================================================
+          BOTTOM DIVE CONTROLLER & PRESET STAGES
+         ========================================================= */}
+      <div className="absolute bottom-3 left-3 right-3 z-30 flex flex-col items-center gap-2">
+        {/* Preset Stage Buttons (Órbita -> Estratosfera -> Bolivia -> Tunari) */}
+        <div className="flex flex-wrap items-center justify-center gap-1.5 rounded-2xl border border-cyan-500/30 bg-slate-950/85 p-1.5 backdrop-blur-xl shadow-[0_0_25px_rgba(0,0,0,0.8)]">
+          <button
+            onClick={() => setDiveProgress(0)}
+            className={`rounded-xl px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-all ${
+              diveProgress < 0.2
+                ? "border border-cyan-400/70 bg-cyan-500/25 text-white shadow-[0_0_12px_rgba(0,229,255,0.3)]"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            🌌 Órbita (800 km)
+          </button>
+          <button
+            onClick={() => setDiveProgress(0.4)}
+            className={`rounded-xl px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-all ${
+              diveProgress >= 0.2 && diveProgress < 0.65
+                ? "border border-cyan-400/70 bg-cyan-500/25 text-white shadow-[0_0_12px_rgba(0,229,255,0.3)]"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            ☁️ Estratosfera (150 km)
+          </button>
+          <button
+            onClick={() => setDiveProgress(0.8)}
+            className={`rounded-xl px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-all ${
+              diveProgress >= 0.65 && diveProgress < 0.95
+                ? "border border-cyan-400/70 bg-cyan-500/25 text-white shadow-[0_0_12px_rgba(0,229,255,0.3)]"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            🇧🇴 Bolivia (45 km)
+          </button>
+          <button
+            onClick={() => setDiveProgress(1.0)}
+            className={`rounded-xl px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-all ${
+              diveProgress >= 0.95
+                ? "border border-red-400/70 bg-red-500/25 text-white shadow-[0_0_12px_rgba(255,51,75,0.4)]"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            🎯 Tunari Táctico (5 km)
+          </button>
+
+          {/* Cinematic Auto-Dive Play Button */}
+          <button
+            onClick={() => setIsPlayingDive(!isPlayingDive)}
+            className={`flex items-center gap-1.5 rounded-xl border px-3 py-1 font-mono text-[10px] font-bold transition-all ${
+              isPlayingDive
+                ? "border-red-400 bg-red-500/30 text-red-200 animate-pulse"
+                : "border-cyan-400/60 bg-cyan-500/20 text-cyan-200 hover:bg-cyan-500/30"
+            }`}
+          >
+            {isPlayingDive ? (
+              <>
+                <Pause className="h-3 w-3" />
+                <span>Pausar</span>
+              </>
+            ) : (
+              <>
+                <Play className="h-3 w-3 fill-current" />
+                <span>Auto-Inmersión</span>
+              </>
+            )}
+          </button>
+
+          {/* Switch to 2D Submetric Tactical Map */}
+          {onEnterTacticalMap && (
+            <button
+              onClick={onEnterTacticalMap}
+              className="flex items-center gap-1 rounded-xl border border-emerald-500/40 bg-emerald-950/60 px-3 py-1 font-mono text-[10px] font-bold text-emerald-300 transition-all hover:bg-emerald-900/60"
+            >
+              <MapIcon className="h-3 w-3" />
+              <span>Mapa 2D</span>
+            </button>
+          )}
+
+          {/* Auto Rotate Toggle */}
+          <button
+            onClick={() => setAutoRotate(!autoRotate)}
+            className="rounded-xl border border-slate-800 bg-slate-900/60 p-1 text-slate-400 hover:text-white"
+            title="Auto-Giro"
+          >
+            <RotateCw className={`h-3.5 w-3.5 ${autoRotate ? "animate-spin-slow text-cyan-300" : ""}`} />
+          </button>
+        </div>
+
+        {/* Interactive Scrub Slider */}
+        <div className="flex w-full max-w-md items-center gap-2 px-4">
+          <span className="font-mono text-[9px] text-slate-400">ÓRBITA</span>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.005"
+            value={diveProgress}
+            onChange={(e) => setDiveProgress(parseFloat(e.target.value))}
+            className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-slate-800 accent-cyan-400 transition-all hover:bg-slate-700"
+          />
+          <span className="font-mono text-[9px] text-cyan-400">TUNARI</span>
+        </div>
       </div>
     </div>
   );
