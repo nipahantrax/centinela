@@ -1,8 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { LogIn, Map, Users, Shield, Sparkles, Orbit, Radio } from "lucide-react";
+import { LogIn, Map, Users, Shield, Orbit } from "lucide-react";
 import { toast } from "sonner";
-import { lovable } from "@/integrations/lovable";
 import { supabase } from "@/integrations/supabase/client";
 import { TacButton } from "@/components/centinela/Brand";
 
@@ -40,13 +39,14 @@ function Login() {
     return () => data.subscription.unsubscribe();
   }, [nav]);
 
-  async function login(provider: "google" | "lovable") {
+  async function login(provider: "google") {
     setBusy(provider);
     try {
-      const result = await lovable.auth.signInWithOAuth(provider, {
-        redirect_uri: window.location.origin,
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: window.location.origin },
       });
-      if (result.error) toast.error("No se pudo iniciar sesión. Intenta nuevamente.");
+      if (error) toast.error("No se pudo iniciar sesión. Intenta nuevamente.");
     } catch {
       toast.error("No se pudo conectar. Revisa tu conexión e intenta nuevamente.");
     } finally {
@@ -98,15 +98,6 @@ function Login() {
           >
             <LogIn className="h-4 w-4 text-cyan-400" />
             <span>{busy === "google" ? "Conectando…" : "Ingresar con Google"}</span>
-          </TacButton>
-          <TacButton
-            disabled={busy !== null}
-            onClick={() => void login("lovable")}
-            className="min-h-11 rounded-xl text-xs"
-            tone="ghost"
-          >
-            <Radio className="h-4 w-4 text-cyan-400" />
-            <span>{busy === "lovable" ? "Conectando…" : "Ingresar con Lovable"}</span>
           </TacButton>
         </div>
 
